@@ -95,19 +95,21 @@ const (
 	JobHigh
 )
 
+type OPType uint32
+
 const (
-	CAN_DO          = iota + 1 //   1            REQ    Worker
-	CANT_DO                    //   REQ    Worker
-	RESET_ABILITIES            //   REQ    Worker
-	PRE_SLEEP                  //   REQ    Worker
-	UNUSED                     //   -      -
-	NOOP                       //   RES    Worker
-	SUBMIT_JOB                 //   REQ    Client
-	JOB_CREATED                //   RES    Client
-	GRAB_JOB                   //   REQ    Worker
-	NO_JOB                     //   RES    Worker
-	JOB_ASSIGN                 //   RES    Worker
-	WORK_STATUS                //   REQ    Worker
+	CAN_DO          OPType = iota + 1 //   1            REQ    Worker
+	CANT_DO                           //   REQ    Worker
+	RESET_ABILITIES                   //   REQ    Worker
+	PRE_SLEEP                         //   REQ    Worker
+	UNUSED                            //   -      -
+	NOOP                              //   RES    Worker
+	SUBMIT_JOB                        //   REQ    Client
+	JOB_CREATED                       //   RES    Client
+	GRAB_JOB                          //   REQ    Worker
+	NO_JOB                            //   RES    Worker
+	JOB_ASSIGN                        //   RES    Worker
+	WORK_STATUS                       //   REQ    Worker
 
 	//     RES    Client
 	WORK_COMPLETE //   REQ    Worker
