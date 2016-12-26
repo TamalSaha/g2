@@ -103,12 +103,10 @@ func decodeInPack(data []byte) (inpack *inPack, l int, err error) {
 		return
 	}
 	inpack = getInPack()
-	var pt rt.PT
-	pt, err = rt.NewPT(binary.BigEndian.Uint32(data[4:8]))
+	inpack.dataType, err = rt.NewPT(binary.BigEndian.Uint32(data[4:8]))
 	if err != nil {
 		return
 	}
-	inpack.dataType = pt
 	switch inpack.dataType {
 	case rt.PT_JobAssign:
 		s := bytes.SplitN(dt, []byte{'\x00'}, 3)

@@ -73,12 +73,10 @@ func decodeResponse(data []byte) (resp *Response, l int, err error) {
 		return
 	}
 	resp = getResponse()
-	var pt rt.PT
-	pt, err = rt.NewPT(binary.BigEndian.Uint32(data[4:8]))
+	resp.DataType, err = rt.NewPT(binary.BigEndian.Uint32(data[4:8]))
 	if err != nil {
 		return
 	}
-	resp.DataType = pt
 	switch resp.DataType {
 	case rt.PT_JobCreated:
 		resp.Handle = string(dt)

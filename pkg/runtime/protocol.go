@@ -169,12 +169,12 @@ func (i PT) Uint32() uint32 {
 	return uint32(i)
 }
 
-func NewPT(code uint32) (PT, error) {
-	if code >= PT_CanDo.Uint32() && code <= PT_SubmitJobEpoch.Uint32() {
-		return PT(code), nil
+func NewPT(cmd uint32) (PT, error) {
+	if cmd >= PT_CanDo.Uint32() && cmd <= PT_SubmitJobEpoch.Uint32() {
+		return PT(cmd), nil
 	}
-	if code >= PT_SubmitReduceJob.Uint32() && code <= PT_StatusResUnique.Uint32() {
-		return PT(code), fmt.Errorf("Unsupported packet type %v", code)
+	if cmd >= PT_SubmitReduceJob.Uint32() && cmd <= PT_StatusResUnique.Uint32() {
+		return PT(cmd), fmt.Errorf("Unsupported packet type %v", cmd)
 	}
-	return PT(code), fmt.Errorf("Invalid packet type %v", code)
+	return PT(cmd), fmt.Errorf("Invalid packet type %v", cmd)
 }

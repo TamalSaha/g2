@@ -206,12 +206,12 @@ func readHeader(r io.Reader) (magic uint32, tp runtime.PT, size uint32, err erro
 		return
 	}
 
-	var code uint32
-	code, err = readUint32(r)
+	var cmd uint32
+	cmd, err = readUint32(r)
 	if err != nil {
 		return
 	}
-	tp, err = runtime.NewPT(code)
+	tp, err = runtime.NewPT(cmd)
 	if err != nil {
 		return
 	}
