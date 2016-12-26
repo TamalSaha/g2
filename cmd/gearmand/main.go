@@ -1,4 +1,4 @@
-//go:generate stringer -type=OPType ../../pkg/runtime
+//go:generate stringer -type=PT ../../pkg/runtime
 package main
 
 import (
