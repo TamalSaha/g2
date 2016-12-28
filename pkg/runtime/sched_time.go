@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"encoding/json"
-	"bytes"
 	"fmt"
 )
 /*
@@ -23,54 +21,39 @@ SUBMIT_JOB_SCHED
  */
 
 type SpecScheduleTime struct {
-	Minute string
-	Hour   string
-	Dom    string
-	Month  string
-	Dow    string
+	Minute  string
+	Hour    string
+	Day     string
+	Month   string
+	WeekDay string
 }
 
 func NewSchedTime(minute, hour, dayOfMonth, month, dayOfWeek string) SpecScheduleTime {
 	return SpecScheduleTime{
 		Minute: minute,
 		Hour: hour,
-		Dom: dayOfMonth,
+		Day: dayOfMonth,
 		Month: month,
-		Dow: dayOfWeek,
+		WeekDay: dayOfWeek,
 	}
 }
 
 func (self SpecScheduleTime) Bytes() []byte {
 	a := len(self.Minute)
 	b := len(self.Hour)
-	c := len(self.Dom)
+	c := len(self.Day)
 	d := len(self.Month)
-	e := len(self.Dow)
+	e := len(self.WeekDay)
 	l := a+b+c+d+e+5
 	data := NewBuffer(l)
 	copy(data[0:a], self.Minute)
 	copy(data[a+1:a+b+1], self.Hour)
-	copy(data[a+b+2: a+b+c+2], self.Dom)
+	copy(data[a+b+2: a+b+c+2], self.Day)
 	copy(data[a+b+c+3: a+b+c+d+3], self.Month)
-	copy(data[a+b+c+d+4: a+b+c+d+e+4], self.Dow)
+	copy(data[a+b+c+d+4: a+b+c+d+e+4], self.WeekDay)
 	return data
 }
 
-func (self SpecScheduleTime) ToCronExpr() string  {
-	return fmt.Sprintf("%v %v %v %v %v", self.Minute, self.Hour, self.Dom, self.Month, self.Dow)
-}
-
-func (self *SpecScheduleTime) String() string {
-	b := &bytes.Buffer{}
-	enc := json.NewEncoder(b)
-	m := make(map[string]interface{})
-	m["Minute"] = self.Minute
-	m["Hour"] = self.Hour
-	m["Dom"] = self.Dom
-	m["Month"] = self.Month
-	m["Dow"] = self.Dow
-	if err := enc.Encode(m); err != nil {
-		return ""
-	}
-	return string(b.Bytes())
+func (self SpecScheduleTime) String() string  {
+	return fmt.Sprintf("%v %v %v %v %v", self.Minute, self.Hour, self.Day, self.Month, self.WeekDay)
 }

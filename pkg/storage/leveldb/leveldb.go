@@ -16,9 +16,9 @@ type LevelDbQ struct {
 	db *leveldb.DB
 }
 
-var _ storage.JobQueue = &LevelDbQ{}
+var _ storage.Db = &LevelDbQ{}
 
-func New(dir string) (storage.JobQueue, error) {
+func New(dir string) (storage.Db, error) {
 	db, err := leveldb.OpenFile(strings.TrimRight(dir, "/")+"/gearmand.ldb", nil)
 	if err != nil {
 		return nil, err
@@ -58,4 +58,37 @@ func (q *LevelDbQ) GetJobs() ([]*Job, error) {
 		return nil, err
 	}
 	return jobs, nil
+}
+
+func (q *LevelDbQ) AddShedJob(sj *ScheduledJob) error {
+	buf, err := json.Marshal(sj)
+	if err != nil {
+		return err
+	}
+	return q.db.Put([]byte(sj.SchedJobId), buf, nil)
+}
+func (q *LevelDbQ) DeleteSchedJob(sj *ScheduledJob) error {
+	return q.db.Delete([]byte(sj.SchedJobId), nil)
+}
+
+func (q *LevelDbQ) GetShedJobs() ([]*ScheduledJob, error) {
+	scheduledJobs := make([]*ScheduledJob, 0)
+
+	iter := q.db.NewIterator(util.BytesPrefix([]byte(SchedJobPrefix)), nil)
+	for iter.Next() {
+		// key := iter.Key()
+		// value := iter.Value()
+		var j ScheduledJob
+		err := json.Unmarshal(iter.Value(), &j)
+		if err != nil {
+			return nil, err
+		}
+		scheduledJobs = append(scheduledJobs, &j)
+	}
+	iter.Release()
+	err := iter.Error()
+	if err != nil {
+		return nil, err
+	}
+	return scheduledJobs, nil
 }

@@ -7,7 +7,6 @@ import (
 
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/log"
-	oneliner "github.com/TamalSaha/go-oneliners"
 )
 
 type session struct {
@@ -31,7 +30,6 @@ func (self *session) getWorker(sessionId int64, inbox chan []byte, conn net.Conn
 
 func (self *session) handleConnection(s *Server, conn net.Conn) {
 	sessionId := s.allocSessionId()
-	oneliner.FILE()
 	inbox := make(chan []byte, 200)
 	out := make(chan []byte, 200)
 	defer func() {
@@ -115,8 +113,6 @@ func (self *session) handleConnection(s *Server, conn net.Conn) {
 			handle := <-e.result
 			sendReply(inbox, PT_JobCreated, [][]byte{[]byte(handle.(string))})
 		case PT_SubmitJobSched:
-			oneliner.FILE()
-
 			if self.c == nil {
 				self.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
 					ConnectAt: time.Now()}}

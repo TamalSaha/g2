@@ -240,9 +240,7 @@ func (client *Client) do(funcname string, data []byte, flag rt.PT) (handle strin
 		client.lastcall = ""
 		return
 	}
-
 	var timer = time.After(client.ResponseTimeout * time.Millisecond)
-
 	select {
 	case ret := <-result:
 		return ret.handle, ret.err
@@ -293,7 +291,7 @@ func (client *Client) DoBg(funcname string, data []byte, flag byte) (handle stri
 	return
 }
 
-func (client *Client) DoSched(funcname string, sts rt.SpecScheduleTime) (handle string, err error) {
+func (client *Client) DoSched(funcname string, sts SchedTimeWithData) (handle string, err error) {
 	if client.conn == nil {
 		return "", ErrLostConn
 	}

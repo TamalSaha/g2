@@ -11,6 +11,7 @@ const (
 	PRIORITY_HIGH = 1
 
 	JobPrefix = "H:"
+	SchedJobPrefix = "S:"
 )
 
 type Job struct {
@@ -28,9 +29,12 @@ type Job struct {
 	FuncName         string
 	IsBackGround     bool
 	Priority         int
-	IsScheduled      bool
-	SpecScheduleTime SpecScheduleTime
+}
 
+type ScheduledJob struct {
+	*Job
+	SchedJobId       string
+	SpecScheduleTime SpecScheduleTime
 }
 
 func (self *Job) String() string {
@@ -52,8 +56,6 @@ func (self *Job) String() string {
 	m["FuncName"] = self.FuncName
 	m["IsBackGround"] = self.IsBackGround
 	m["Priority"] = self.Priority
-	m["IsScheduledJob"] = self.IsScheduled
-	m["ScheduledTime"] = self.SpecScheduleTime
 
 	if err := enc.Encode(m); err != nil {
 		return ""

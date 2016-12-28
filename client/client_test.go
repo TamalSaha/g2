@@ -4,9 +4,6 @@ import (
 	"testing"
 
 	rt "github.com/appscode/g2/pkg/runtime"
-	"fmt"
-	"sync"
-	"os"
 )
 
 const (
@@ -26,91 +23,8 @@ func TestClientAddServer(t *testing.T) {
 	}
 }
 
-func TestTest(t *testing.T) {
-	c, _ := New("tcp4", "127.0.0.1:4730")
-	// ... error handling
-	defer c.Close()
-	c.ErrorHandler = func(e error) {
-		fmt.Println(e)
-	}
-
-	//echo := []byte("Hello world")
-	//echomsg, _ := c.Echo(echo)
-	//fmt.Println(string(echomsg))
-
-	//echo = []byte("Hello\x00 world")
-	//echomsg, _ = c.Echo(echo)
-	//fmt.Println(string(echomsg))
-
-	//time.Sleep(30*time.Second)
-
-	//handeler := func(resp * Response) {
-	//	switch resp.DataType {
-	//	case rt.PT_WorkException:
-	//		fallthrough
-	//	case rt.PT_WorkFail:
-	//		fallthrough
-	//	case rt.PT_WorkComplete:
-	//		if data, err := resp.Result(); err == nil {
-	//			fmt.Printf("RESULT: %v\n", data)
-	//		} else {
-	//			fmt.Printf("RESULT: %s\n", err)
-	//		}
-	//	case rt.PT_WorkWarning:
-	//		fallthrough
-	//	case rt.PT_WorkData:
-	//		if data, err := resp.Update(); err == nil {
-	//			fmt.Printf("UPDATE: %v\n", data)
-	//		} else {
-	//			fmt.Printf("UPDATE: %v, %s\n", data, err)
-	//		}
-	//	case rt.PT_WorkStatus:
-	//		if data, err := resp.Status(); err == nil {
-	//			fmt.Printf("STATUS: %v\n", data)
-	//		} else {
-	//			fmt.Printf("STATUS: %s\n", err)
-	//		}
-	//	default:
-	//		fmt.Printf("UNKNOWN: %v", resp.Data)
-	//	}
-	//}
-	//_, err := c.Do("Test", echo, rt.JobLow, handeler)
-	//handle, err := c.DoBg("Test", echo, rt.JobLow)
-
-
-	handle, err := c.DoSched("Test", rt.SpecScheduleTime{
-		Minute: "50,48,49",
-		Hour: "*",
-		Dom: "*",
-		Month: "*",
-		Dow: "*",
-	})
-
-	fmt.Print("Handle: ", handle)
-	//handle, err := c.DoSched("Test", []byte("1234"))
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	//status, err := c.Status(handle)
-	//if err != nil {
-	//	fmt.Println(err)
-	//	os.Exit(1)
-	//}
-	//fmt.Printf("%v", *status)
-	//
-	//_, err = c.DoSched("Foobar", echo, jobHandler)
-	//if err != nil {
-	//	fmt.Println(err)
-	//	os.Exit(0)
-	//}
-
-	fmt.Println("Press Ctrl-C to exit ...")
-	var mutex sync.Mutex
-	mutex.Lock()
-	mutex.Lock()
-}
 func TestClientEcho(t *testing.T) {
+	initClient(t)
 	echo, err := client.Echo([]byte(TestStr))
 	if err != nil {
 		t.Error(err)
@@ -123,7 +37,31 @@ func TestClientEcho(t *testing.T) {
 }
 
 func TestClientDoBg(t *testing.T) {
+	initClient(t)
 	handle, err := client.DoBg("ToUpper", []byte("abcdef"), rt.JobLow)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if handle == "" {
+		t.Error("Handle is empty.")
+	} else {
+		t.Log(handle)
+	}
+}
+
+func TestClientDoSched(t *testing.T) {
+	initClient(t)
+	handle, err := client.DoSched("foobar", SchedTimeWithData{
+		SpecScheduleTime: rt.SpecScheduleTime{
+			Minute: "25,26",
+			Hour: "*",
+			Day: "*",
+			Month: "*",
+			WeekDay: "*",
+		},
+		data: TestStr,
+	})
 	if err != nil {
 		t.Error(err)
 		return
@@ -197,4 +135,16 @@ func TestClientClose(t *testing.T) {
 	if err := client.Close(); err != nil {
 		t.Error(err)
 	}
+}
+
+func initClient(t *testing.T) *Client {
+	if client == nil {
+		var  err error
+		client, err = New(rt.Network, "127.0.0.1:4730")
+		if  err != nil {
+			t.Fatal(err)
+		}
+	}
+	return client
+
 }

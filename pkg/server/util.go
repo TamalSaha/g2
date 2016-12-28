@@ -66,6 +66,10 @@ func allocJobId() string {
 	return <-jidCh
 }
 
+func getScheduleJobId(handle string) string {
+	return fmt.Sprintf("%s%s", runtime.SchedJobPrefix, handle[len(runtime.JobPrefix):])
+}
+
 type event struct {
 	tp            runtime.PT
 	args          *Tuple
@@ -168,9 +172,9 @@ func toSpecScheduleTime(args *Tuple) runtime.SpecScheduleTime {
 	return runtime.SpecScheduleTime{
 		Minute: bytes2str(args.t3),
 		Hour:   bytes2str(args.t4),
-		Dom:    bytes2str(args.t5),
+		Day:    bytes2str(args.t5),
 		Month:  bytes2str(args.t6),
-		Dow:    bytes2str(args.t7),
+		WeekDay:    bytes2str(args.t7),
 	}
 }
 

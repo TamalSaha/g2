@@ -13,7 +13,6 @@ import (
 	"github.com/appscode/g2/pkg/storage"
 	"github.com/appscode/log"
 	"github.com/ngaut/stats"
-	"github.com/TamalSaha/go-oneliners"
 )
 
 type Server struct {
@@ -25,7 +24,7 @@ type Server struct {
 	jobs           map[string]*Job
 	startSessionId int64
 	opCounter      map[PT]int64
-	store          storage.JobQueue
+	store          storage.Db
 	forwardReport  int64
 	cronSvc        *CronService
 }
@@ -35,7 +34,7 @@ var ( //const replys, to avoid building it every time
 	nojobReply  = constructReply(PT_NoJob, nil)
 )
 
-func NewServer(store storage.JobQueue) *Server {
+func NewServer(store storage.Db) *Server {
 	return &Server{
 		funcWorker: make(map[string]*jobworkermap),
 		protoEvtCh: make(chan *event, 100),
@@ -61,13 +60,22 @@ func (self *Server) getAllJobs() {
 	for _, j := range jobs {
 		j.ProcessBy = 0 //no body handle it now
 		j.CreateBy = 0  //clear
-		if j.IsScheduled {
-			//self.doAddSchedJob(j)
-			//TODO @ashiq uncomment after test
-		} else {
-			self.doAddJob(j)
-		}
+		self.doAddJob(j)
 	}
+}
+
+func (self *Server) getAllSchedJobs() {
+	schedJobs, err := self.store.GetShedJobs()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	log.Debugf("%+v", schedJobs)
+	for _, sj := range schedJobs {
+		self.doAddSchedJob(sj)
+	}
+
 }
 
 func (self *Server) Start(addr string) {
@@ -82,15 +90,14 @@ func (self *Server) Start(addr string) {
 
 	go registerWebHandler(self)
 
-	//load background jobs from storage
-	if self.store != nil {
-		self.getAllJobs()
-	}
-
 	if self.cronSvc != nil {
 		self.cronSvc.Start()
 	}
-	//TODO @ashiq load active cron from storage
+	//load background jobs from storage
+	if self.store != nil {
+		self.getAllJobs()
+		self.getAllSchedJobs()
+	}
 
 	for {
 		conn, err := ln.Accept()
@@ -160,12 +167,20 @@ func (self *Server) doAddJob(j *Job) {
 	self.wakeupWorker(j.FuncName)
 }
 
-//TODO Add scheduled job
-func (self *Server) doAddSchedJob(j *Job) {
-	oneliners.FILE()
-	self.cronSvc.AddFunc(j.SpecScheduleTime.ToCronExpr(), func() {
-		self.doAddJob(j)
-		fmt.Println("Scheduled Job Successfully executed")
+func (self *Server) doAddAndPersistJob(j *Job) {
+	// persistent job
+	log.Debugf("add job %+v", j)
+	if self.store != nil {
+		if err := self.store.AddJob(j); err != nil {
+			log.Warning(err)
+		}
+	}
+	self.doAddJob(j)
+}
+
+func (self *Server) doAddSchedJob(sj *ScheduledJob) {
+	self.cronSvc.AddFunc(sj.SpecScheduleTime.String(), func() {
+		self.doAddAndPersistJob(sj.Job)
 	})
 }
 
@@ -345,19 +360,11 @@ func (self *Server) handleSubmitJob(e *event) {
 		FuncName: funcName, Priority: PRIORITY_LOW}
 
 	j.IsBackGround = isBackGround(e.tp)
-	// persistent job
-	log.Debugf("add job %+v", j)
-	if self.store != nil {
-		if err := self.store.AddJob(j); err != nil {
-			log.Warning(err)
-		}
-	}
-
 	j.Priority = cmd2Priority(e.tp)
 
 	//log.Debugf("%v, job handle %v, %s", CmdDescription(e.tp), j.Handle, string(j.Data))
 	e.result <- j.Handle
-	self.doAddJob(j)
+	self.doAddAndPersistJob(j)
 }
 
 func (self *Server) handleSchedJob(e *event) {
@@ -367,38 +374,31 @@ func (self *Server) handleSchedJob(e *event) {
 	funcName := bytes2str(args.t1)
 	st := toSpecScheduleTime(args)
 
-	j := &Job{
-		Id:               bytes2str(args.t2),
-		Data:             args.t8.([]byte),
-		Handle:           allocJobId(),
-		CreateAt:         time.Now(),
-		CreateBy:         c.SessionId,
-		FuncName:         funcName,
-		Priority:         PRIORITY_LOW,
-		IsScheduled:      true,
+	sj := &ScheduledJob{
+		Job: &Job{
+			Id:               bytes2str(args.t2),
+			Data:             args.t8.([]byte),
+			Handle:           allocJobId(),
+			CreateAt:         time.Now(),
+			CreateBy:         c.SessionId,
+			FuncName:         funcName,
+			Priority:         PRIORITY_LOW,
+			IsBackGround: true,
+		},
 		SpecScheduleTime: st,
 	}
-
-	j.IsBackGround = true
-	// persistent job
-	log.Debugf("add scheduled job %+v", j)
+	sj.SchedJobId = getScheduleJobId(sj.Job.Handle)
+	sj.Priority = cmd2Priority(e.tp)
+	e.result <- sj.Handle
+	// persistent Cron Job
 	if self.store != nil {
-		if err := self.store.AddJob(j); err != nil {
+		if err := self.store.AddShedJob(sj); err != nil {
 			log.Warning(err)
 		}
 	}
-
-	j.Priority = cmd2Priority(e.tp)
-
-	//log.Debugf("%v, job handle %v, %s", CmdDescription(e.tp), j.Handle, string(j.Data))
-	e.result <- j.Handle
-	self.doAddSchedJob(j)
-	//TODO @ashiq remove after testing
-	d, er := json.Marshal(j)
-	if er != nil {
-		panic(er)
-	}
-	fmt.Println("Scheduled: ", string(d))
+	self.doAddSchedJob(sj)
+	log.Debugf("Scheduled cron job added with function name `%s`, data '%s' and cron expression - '%s'\n", string(sj.FuncName), string(sj.Data), sj.SpecScheduleTime.String())
+	fmt.Printf("Scheduled cron job added with function name`%s`, data '%s' and cron expression - '%s'\n", string(sj.FuncName), string(sj.Data), sj.SpecScheduleTime.String())
 }
 
 func (self *Server) handleWorkReport(e *event) {
