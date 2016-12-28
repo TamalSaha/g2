@@ -7,6 +7,7 @@ import (
 
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/log"
+	oneliner "github.com/TamalSaha/go-oneliners"
 )
 
 type session struct {
@@ -30,7 +31,7 @@ func (self *session) getWorker(sessionId int64, inbox chan []byte, conn net.Conn
 
 func (self *session) handleConnection(s *Server, conn net.Conn) {
 	sessionId := s.allocSessionId()
-
+	oneliner.FILE()
 	inbox := make(chan []byte, 200)
 	out := make(chan []byte, 200)
 	defer func() {
@@ -59,7 +60,6 @@ func (self *session) handleConnection(s *Server, conn net.Conn) {
 			log.Debug(err, "sessionId", sessionId)
 			return
 		}
-
 		args, ok := decodeArgs(tp, buf)
 		if !ok {
 			log.Debug("tp:", tp.String(), "argc not match", "details:", string(buf))
@@ -109,6 +109,20 @@ func (self *session) handleConnection(s *Server, conn net.Conn) {
 			}
 			e := &event{tp: tp,
 				args:   &Tuple{t0: self.c, t1: args[0], t2: args[1], t3: args[2]},
+				result: createResCh(),
+			}
+			s.protoEvtCh <- e
+			handle := <-e.result
+			sendReply(inbox, PT_JobCreated, [][]byte{[]byte(handle.(string))})
+		case PT_SubmitJobSched:
+			oneliner.FILE()
+
+			if self.c == nil {
+				self.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
+					ConnectAt: time.Now()}}
+			}
+			e := &event{tp: tp,
+				args:   &Tuple{t0: self.c, t1: args[0], t2: args[1], t3: args[2], t4: args[3], t5: args[4], t6: args[5], t7: args[6], t8: args[7]},
 				result: createResCh(),
 			}
 			s.protoEvtCh <- e

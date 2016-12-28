@@ -8,24 +8,26 @@ import (
 	"sync/atomic"
 	"time"
 
+	"fmt"
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/pkg/storage"
 	"github.com/appscode/log"
 	"github.com/ngaut/stats"
+	"github.com/TamalSaha/go-oneliners"
 )
 
 type Server struct {
-	protoEvtCh chan *event
-	ctrlEvtCh  chan *event
-	funcWorker map[string]*jobworkermap //function worker
-	worker     map[int64]*Worker
-	client     map[int64]*Client
-	jobs       map[string]*Job
-
+	protoEvtCh     chan *event
+	ctrlEvtCh      chan *event
+	funcWorker     map[string]*jobworkermap //function worker
+	worker         map[int64]*Worker
+	client         map[int64]*Client
+	jobs           map[string]*Job
 	startSessionId int64
 	opCounter      map[PT]int64
 	store          storage.JobQueue
 	forwardReport  int64
+	cronSvc        *CronService
 }
 
 var ( //const replys, to avoid building it every time
@@ -43,6 +45,7 @@ func NewServer(store storage.JobQueue) *Server {
 		jobs:       make(map[string]*Job),
 		opCounter:  make(map[PT]int64),
 		store:      store,
+		cronSvc:    NewCronService(),
 	}
 }
 
@@ -58,7 +61,12 @@ func (self *Server) getAllJobs() {
 	for _, j := range jobs {
 		j.ProcessBy = 0 //no body handle it now
 		j.CreateBy = 0  //clear
-		self.doAddJob(j)
+		if j.IsScheduled {
+			//self.doAddSchedJob(j)
+			//TODO @ashiq uncomment after test
+		} else {
+			self.doAddJob(j)
+		}
 	}
 }
 
@@ -78,6 +86,11 @@ func (self *Server) Start(addr string) {
 	if self.store != nil {
 		self.getAllJobs()
 	}
+
+	if self.cronSvc != nil {
+		self.cronSvc.Start()
+	}
+	//TODO @ashiq load active cron from storage
 
 	for {
 		conn, err := ln.Accept()
@@ -145,6 +158,15 @@ func (self *Server) doAddJob(j *Job) {
 	self.add2JobWorkerQueue(j)
 	self.jobs[j.Handle] = j
 	self.wakeupWorker(j.FuncName)
+}
+
+//TODO Add scheduled job
+func (self *Server) doAddSchedJob(j *Job) {
+	oneliners.FILE()
+	self.cronSvc.AddFunc(j.SpecScheduleTime.ToCronExpr(), func() {
+		self.doAddJob(j)
+		fmt.Println("Scheduled Job Successfully executed")
+	})
 }
 
 func (self *Server) popJob(sessionId int64) (j *Job) {
@@ -338,6 +360,47 @@ func (self *Server) handleSubmitJob(e *event) {
 	self.doAddJob(j)
 }
 
+func (self *Server) handleSchedJob(e *event) {
+	args := e.args
+	c := args.t0.(*Client)
+	self.client[c.SessionId] = c
+	funcName := bytes2str(args.t1)
+	st := toSpecScheduleTime(args)
+
+	j := &Job{
+		Id:               bytes2str(args.t2),
+		Data:             args.t8.([]byte),
+		Handle:           allocJobId(),
+		CreateAt:         time.Now(),
+		CreateBy:         c.SessionId,
+		FuncName:         funcName,
+		Priority:         PRIORITY_LOW,
+		IsScheduled:      true,
+		SpecScheduleTime: st,
+	}
+
+	j.IsBackGround = true
+	// persistent job
+	log.Debugf("add scheduled job %+v", j)
+	if self.store != nil {
+		if err := self.store.AddJob(j); err != nil {
+			log.Warning(err)
+		}
+	}
+
+	j.Priority = cmd2Priority(e.tp)
+
+	//log.Debugf("%v, job handle %v, %s", CmdDescription(e.tp), j.Handle, string(j.Data))
+	e.result <- j.Handle
+	self.doAddSchedJob(j)
+	//TODO @ashiq remove after testing
+	d, er := json.Marshal(j)
+	if er != nil {
+		panic(er)
+	}
+	fmt.Println("Scheduled: ", string(d))
+}
+
 func (self *Server) handleWorkReport(e *event) {
 	args := e.args
 	slice := args.t0.([][]byte)
@@ -459,6 +522,8 @@ func (self *Server) handleProtoEvt(e *event) {
 		}
 	case PT_SubmitJob, PT_SubmitJobLowBG, PT_SubmitJobLow:
 		self.handleSubmitJob(e)
+	case PT_SubmitJobSched:
+		self.handleSchedJob(e)
 	case PT_GetStatus:
 		jobhandle := bytes2str(args.t0)
 		if job, ok := self.jobs[jobhandle]; ok {

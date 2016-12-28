@@ -80,7 +80,7 @@ type jobworkermap struct {
 }
 
 type Tuple struct {
-	t0, t1, t2, t3, t4, t5 interface{}
+	t0, t1, t2, t3, t4, t5, t6, t7, t8 interface{}
 }
 
 func decodeArgs(cmd runtime.PT, buf []byte) ([][]byte, bool) {
@@ -96,7 +96,6 @@ func decodeArgs(cmd runtime.PT, buf []byte) ([][]byte, bool) {
 		args = append(args, buf)
 		return args, true
 	}
-
 	endPos := 0
 	cnt := 0
 	for ; cnt < argc-1 && endPos < len(buf); cnt++ {
@@ -110,7 +109,6 @@ func decodeArgs(cmd runtime.PT, buf []byte) ([][]byte, bool) {
 		args = append(args, buf[startPos:endPos])
 		endPos++
 	}
-
 	args = append(args, buf[endPos:]) //option data
 	cnt++
 
@@ -166,6 +164,16 @@ func bytes2str(o interface{}) string {
 	return string(o.([]byte))
 }
 
+func toSpecScheduleTime(args *Tuple) runtime.SpecScheduleTime {
+	return runtime.SpecScheduleTime{
+		Minute: bytes2str(args.t3),
+		Hour:   bytes2str(args.t4),
+		Dom:    bytes2str(args.t5),
+		Month:  bytes2str(args.t6),
+		Dow:    bytes2str(args.t7),
+	}
+}
+
 func bool2bytes(b interface{}) []byte {
 	if b.(bool) {
 		return []byte{'1'}
@@ -215,7 +223,6 @@ func readHeader(r io.Reader) (magic uint32, tp runtime.PT, size uint32, err erro
 	if err != nil {
 		return
 	}
-
 	size, err = readUint32(r)
 	return
 }

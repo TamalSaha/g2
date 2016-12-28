@@ -240,7 +240,9 @@ func (client *Client) do(funcname string, data []byte, flag rt.PT) (handle strin
 		client.lastcall = ""
 		return
 	}
+
 	var timer = time.After(client.ResponseTimeout * time.Millisecond)
+
 	select {
 	case ret := <-result:
 		return ret.handle, ret.err
@@ -274,8 +276,7 @@ func (client *Client) Do(funcname string, data []byte,
 
 // Call the function in background, no response needed.
 // flag can be set to: JobLow, JobNormal and JobHigh
-func (client *Client) DoBg(funcname string, data []byte,
-	flag byte) (handle string, err error) {
+func (client *Client) DoBg(funcname string, data []byte, flag byte) (handle string, err error) {
 	if client.conn == nil {
 		return "", ErrLostConn
 	}
@@ -289,6 +290,14 @@ func (client *Client) DoBg(funcname string, data []byte,
 		datatype = rt.PT_SubmitJobBG
 	}
 	handle, err = client.do(funcname, data, datatype)
+	return
+}
+
+func (client *Client) DoSched(funcname string, sts rt.SpecScheduleTime) (handle string, err error) {
+	if client.conn == nil {
+		return "", ErrLostConn
+	}
+	handle, err = client.do(funcname, sts.Bytes(), rt.PT_SubmitJobSched)
 	return
 }
 

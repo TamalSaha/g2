@@ -14,20 +14,23 @@ const (
 )
 
 type Job struct {
-	Handle       string //server job handle
-	Id           string
-	Data         []byte
-	Running      bool
-	Percent      int
-	Denominator  int
-	CreateAt     time.Time
-	ProcessAt    time.Time
-	TimeoutSec   int
-	CreateBy     int64 //client sessionId
-	ProcessBy    int64 //worker sessionId
-	FuncName     string
-	IsBackGround bool
-	Priority     int
+	Handle           string //server job handle
+	Id               string
+	Data             []byte
+	Running          bool
+	Percent          int
+	Denominator      int
+	CreateAt         time.Time
+	ProcessAt        time.Time
+	TimeoutSec       int
+	CreateBy         int64 //client sessionId
+	ProcessBy        int64 //worker sessionId
+	FuncName         string
+	IsBackGround     bool
+	Priority         int
+	IsScheduled      bool
+	SpecScheduleTime SpecScheduleTime
+
 }
 
 func (self *Job) String() string {
@@ -49,6 +52,8 @@ func (self *Job) String() string {
 	m["FuncName"] = self.FuncName
 	m["IsBackGround"] = self.IsBackGround
 	m["Priority"] = self.Priority
+	m["IsScheduledJob"] = self.IsScheduled
+	m["ScheduledTime"] = self.SpecScheduleTime
 
 	if err := enc.Encode(m); err != nil {
 		return ""
