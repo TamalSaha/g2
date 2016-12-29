@@ -6,14 +6,14 @@ import (
 
 type SchedTimeWithData struct {
 	rt.SpecScheduleTime
-	data       string
+	data string
 }
 
 func (this SchedTimeWithData) Bytes() []byte {
 	sts := this.SpecScheduleTime.Bytes()
 	a := len(sts)
 	b := len(this.data)
-	l := a+b
+	l := a + b
 	data := rt.NewBuffer(l)
 	copy(data[0:a], sts)
 	copy(data[a:], this.data)

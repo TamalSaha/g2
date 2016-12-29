@@ -7,7 +7,6 @@ import (
 	rt "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/worker"
 	"testing"
-	"time"
 )
 
 func ExampleWorker() {
@@ -59,7 +58,7 @@ func ExampleWorker() {
 	// Output: Hello
 }
 
-func TestTest(t *testing.T) {
+func TestScheduledJob(t *testing.T) {
 	// An example of worker
 	w := worker.New(worker.Unlimited)
 	defer w.Close()
@@ -69,12 +68,12 @@ func TestTest(t *testing.T) {
 		return
 	}
 	// A function for handling jobs
-	foobar := func(job worker.Job) ([]byte, error) {
-		fmt.Println("Function executed. function name: ", "foobar", "Parameter: ", string(job.Data()))
+	scheduledJobTest := func(job worker.Job) ([]byte, error) {
+		fmt.Println(" Test Function executed. function name: ", "scheduledJobTest", "Parameter: ", string(job.Data()))
 		return nil, nil
 	}
 	// Add the function to worker
-	if err := w.AddFunc("foobar", foobar, 0); err != nil {
+	if err := w.AddFunc("scheduledJobTest", scheduledJobTest, 0); err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -102,10 +101,5 @@ func TestTest(t *testing.T) {
 	// Running main loop
 	go w.Work()
 	wg.Add(1)
-	// calling Echo
-	w.Echo([]byte("Hello"))
-	// Waiting results
 	wg.Wait()
-	time.Sleep(time.Second*1000)
-	// Output: Hello
 }

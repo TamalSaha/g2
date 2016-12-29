@@ -3,16 +3,15 @@ package server
 import (
 	"container/list"
 	"encoding/json"
-	"net"
-	"strconv"
-	"sync/atomic"
-	"time"
-
-	"fmt"
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/pkg/storage"
 	"github.com/appscode/log"
 	"github.com/ngaut/stats"
+	"gopkg.in/robfig/cron.v2"
+	"net"
+	"strconv"
+	"sync/atomic"
+	"time"
 )
 
 type Server struct {
@@ -26,7 +25,7 @@ type Server struct {
 	opCounter      map[PT]int64
 	store          storage.Db
 	forwardReport  int64
-	cronSvc        *CronService
+	cronSvc        *cron.Cron
 }
 
 var ( //const replys, to avoid building it every time
@@ -44,7 +43,7 @@ func NewServer(store storage.Db) *Server {
 		jobs:       make(map[string]*Job),
 		opCounter:  make(map[PT]int64),
 		store:      store,
-		cronSvc:    NewCronService(),
+		cronSvc:    cron.New(),
 	}
 }
 
@@ -71,7 +70,7 @@ func (self *Server) getAllSchedJobs() {
 		return
 	}
 
-	log.Debugf("%+v", schedJobs)
+	log.Debugf("load scheduled job: %+v", schedJobs)
 	for _, sj := range schedJobs {
 		self.doAddSchedJob(sj)
 	}
@@ -376,13 +375,13 @@ func (self *Server) handleSchedJob(e *event) {
 
 	sj := &ScheduledJob{
 		Job: &Job{
-			Id:               bytes2str(args.t2),
-			Data:             args.t8.([]byte),
-			Handle:           allocJobId(),
-			CreateAt:         time.Now(),
-			CreateBy:         c.SessionId,
-			FuncName:         funcName,
-			Priority:         PRIORITY_LOW,
+			Id:           bytes2str(args.t2),
+			Data:         args.t8.([]byte),
+			Handle:       allocJobId(),
+			CreateAt:     time.Now(),
+			CreateBy:     c.SessionId,
+			FuncName:     funcName,
+			Priority:     PRIORITY_LOW,
 			IsBackGround: true,
 		},
 		SpecScheduleTime: st,
@@ -391,6 +390,7 @@ func (self *Server) handleSchedJob(e *event) {
 	sj.Priority = cmd2Priority(e.tp)
 	e.result <- sj.Handle
 	// persistent Cron Job
+	log.Debugf("add scheduled job %+v", sj)
 	if self.store != nil {
 		if err := self.store.AddShedJob(sj); err != nil {
 			log.Warning(err)
@@ -398,7 +398,6 @@ func (self *Server) handleSchedJob(e *event) {
 	}
 	self.doAddSchedJob(sj)
 	log.Debugf("Scheduled cron job added with function name `%s`, data '%s' and cron expression - '%s'\n", string(sj.FuncName), string(sj.Data), sj.SpecScheduleTime.String())
-	fmt.Printf("Scheduled cron job added with function name`%s`, data '%s' and cron expression - '%s'\n", string(sj.FuncName), string(sj.Data), sj.SpecScheduleTime.String())
 }
 
 func (self *Server) handleWorkReport(e *event) {

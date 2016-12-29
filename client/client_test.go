@@ -52,15 +52,15 @@ func TestClientDoBg(t *testing.T) {
 
 func TestClientDoSched(t *testing.T) {
 	initClient(t)
-	handle, err := client.DoSched("foobar", SchedTimeWithData{
+	handle, err := client.DoSched("scheduledJobTest", SchedTimeWithData{
 		SpecScheduleTime: rt.SpecScheduleTime{
-			Minute: "25,26",
-			Hour: "*",
-			Day: "*",
-			Month: "*",
-			WeekDay: "*",
+			Minute:  "",
+			Hour:    "",
+			Day:     "",
+			Month:   "",
+			WeekDay: "",
 		},
-		data: TestStr,
+		data: "Test data",
 	})
 	if err != nil {
 		t.Error(err)
@@ -139,9 +139,9 @@ func TestClientClose(t *testing.T) {
 
 func initClient(t *testing.T) *Client {
 	if client == nil {
-		var  err error
+		var err error
 		client, err = New(rt.Network, "127.0.0.1:4730")
-		if  err != nil {
+		if err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 )
+
 /*
 SUBMIT_JOB_SCHED
 
@@ -18,7 +19,7 @@ SUBMIT_JOB_SCHED
     - NULL byte terminated month (1-12).
     - NULL byte terminated day of week (0-6, 0 = Monday).
     - Opaque data that is given to the function as an argument.
- */
+*/
 
 type SpecScheduleTime struct {
 	Minute  string
@@ -30,10 +31,10 @@ type SpecScheduleTime struct {
 
 func NewSchedTime(minute, hour, dayOfMonth, month, dayOfWeek string) SpecScheduleTime {
 	return SpecScheduleTime{
-		Minute: minute,
-		Hour: hour,
-		Day: dayOfMonth,
-		Month: month,
+		Minute:  minute,
+		Hour:    hour,
+		Day:     dayOfMonth,
+		Month:   month,
 		WeekDay: dayOfWeek,
 	}
 }
@@ -44,16 +45,25 @@ func (self SpecScheduleTime) Bytes() []byte {
 	c := len(self.Day)
 	d := len(self.Month)
 	e := len(self.WeekDay)
-	l := a+b+c+d+e+5
+	l := a + b + c + d + e + 5
 	data := NewBuffer(l)
 	copy(data[0:a], self.Minute)
 	copy(data[a+1:a+b+1], self.Hour)
-	copy(data[a+b+2: a+b+c+2], self.Day)
-	copy(data[a+b+c+3: a+b+c+d+3], self.Month)
-	copy(data[a+b+c+d+4: a+b+c+d+e+4], self.WeekDay)
+	copy(data[a+b+2:a+b+c+2], self.Day)
+	copy(data[a+b+c+3:a+b+c+d+3], self.Month)
+	copy(data[a+b+c+d+4:a+b+c+d+e+4], self.WeekDay)
 	return data
 }
 
-func (self SpecScheduleTime) String() string  {
-	return fmt.Sprintf("%v %v %v %v %v", self.Minute, self.Hour, self.Day, self.Month, self.WeekDay)
+func (self SpecScheduleTime) String() string {
+	if self.Minute == "" {
+		self.Minute = "*"
+	}
+	fix := func(v string) string {
+		if v == "" {
+			return "*"
+		}
+		return v
+	}
+	return fmt.Sprintf("%v %v %v %v %v", fix(self.Minute), fix(self.Hour), fix(self.Day), fix(self.Month), fix(self.WeekDay))
 }
