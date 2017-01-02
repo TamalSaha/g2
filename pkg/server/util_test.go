@@ -59,15 +59,6 @@ func TestDecodeArgs(t *testing.T) {
 	}
 }
 
-func TestGetScheduleJobId(t *testing.T) {
-	jobId := "H:-icee:-3043-1482985931-2"
-	expectedSchedjobId := "S:-icee:-3043-1482985931-2"
-	schedJobId := getScheduleJobId(jobId)
-	if getScheduleJobId(jobId) != expectedSchedjobId {
-		t.Errorf("Expected %s, got %s\n", expectedSchedjobId, schedJobId)
-	}
-}
-
 func TestToSpecScheduleTime(t *testing.T) {
 	args := &Tuple{
 		t3: []byte{51, 49}, //Minute

@@ -67,8 +67,18 @@ func (q *LevelDbQ) AddShedJob(sj *ScheduledJob) error {
 	}
 	return q.db.Put([]byte(sj.SchedJobId), buf, nil)
 }
-func (q *LevelDbQ) DeleteSchedJob(sj *ScheduledJob) error {
-	return q.db.Delete([]byte(sj.SchedJobId), nil)
+func (q *LevelDbQ) DeleteSchedJob(sj *ScheduledJob) (*ScheduledJob, error) {
+	data, err := q.db.Get([]byte(sj.SchedJobId), nil)
+	if err != nil {
+		return nil, err
+	}
+	js := &ScheduledJob{}
+	err = json.Unmarshal(data, js)
+	if err != nil {
+		return nil, err
+	}
+
+	return js, q.db.Delete([]byte(sj.SchedJobId), nil)
 }
 
 func (q *LevelDbQ) GetShedJobs() ([]*ScheduledJob, error) {
