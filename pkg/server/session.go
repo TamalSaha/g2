@@ -5,8 +5,13 @@ import (
 	"net"
 	"time"
 
+	"fmt"
+
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/log"
+	"github.com/syndtr/goleveldb/leveldb/errors"
+	"gopkg.in/robfig/cron.v2"
+	"strings"
 )
 
 type session struct {
@@ -51,7 +56,20 @@ func (self *session) handleConnection(s *Server, conn net.Conn) {
 	//todo:1. reuse event's result channel, create less garbage.
 	//2. heavily rely on goroutine switch, send reply in EventLoop can make it faster, but logic is not that clean
 	//so i am not going to change it right now, maybe never
+	fb, err := r.Peek(1)
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
+	if fb[0] == byte(0) {
+		self.handleBinaryConnection(s, conn, r, sessionId, inbox)
+	} else {
+		self.handleAdminConnection(s, conn, r, sessionId, inbox)
+	}
 
+}
+
+func (self *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.Reader, sessionId int64, inbox chan []byte) {
 	for {
 		tp, buf, err := ReadMessage(r)
 		if err != nil {
@@ -122,8 +140,8 @@ func (self *session) handleConnection(s *Server, conn net.Conn) {
 				result: createResCh(),
 			}
 			s.protoEvtCh <- e
-			handle := <-e.result
-			sendReply(inbox, PT_JobCreated, [][]byte{[]byte(handle.(string))})
+			shcedJobId := <-e.result
+			sendReply(inbox, PT_JobCreated, [][]byte{[]byte(shcedJobId.(string))})
 		case PT_GetStatus:
 			e := &event{tp: tp, args: &Tuple{t0: args[0]},
 				result: createResCh()}
@@ -144,6 +162,49 @@ func (self *session) handleConnection(s *Server, conn net.Conn) {
 				fromSessionId: sessionId}
 		default:
 			log.Warningf("not support type %s", tp.String())
+		}
+	}
+}
+
+func (self *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Reader, sessionId int64, inbox chan []byte) {
+	for {
+		rcv, err := r.ReadBytes('\n')
+		if err != nil {
+			sendTextReply(inbox, fmt.Sprintf("Error: %v\n", err))
+			log.Errorln(err)
+			continue
+		}
+		trimedRcv := strings.TrimSpace(string(rcv))
+		if trimedRcv == "" {
+			continue
+		}
+		ap, arg := ParseTextMessage(trimedRcv)
+		switch ap {
+		case AP_Workers, AP_Status, AP_Show, AP_Create, AP_Drop, AP_MaxQueue, AP_GetPid, AP_Shutdown, AP_Verbose, AP_Version:
+			sendTextError(inbox, fmt.Sprintf("command `%s` is currently unimplemented", ap))
+		case AP_Cancel:
+			if IsValidScheduleJobHandle(arg) {
+				sj, err := s.store.DeleteSchedJob(&ScheduledJob{SchedJobId: arg})
+				if err == errors.ErrNotFound {
+					log.Errorf("handle `%v` not found\n", arg)
+					sendTextError(inbox, fmt.Sprintf("handle `%v` not found", arg))
+					continue
+				}
+				if err != nil {
+					log.Errorln(err)
+					sendTextError(inbox, err.Error())
+					continue
+				}
+				s.cronSvc.Remove(cron.EntryID(sj.CronEntryID))
+				log.Debugf("job `%v` successfully cancelled.\n", arg)
+				sendTextOK(inbox)
+			} else {
+				log.Errorf("invalid handle `%v`\n", arg)
+				sendTextError(inbox, fmt.Sprintf("Invalid handle `%v`, valid schedule job handle should start with `S:`\n", arg))
+			}
+		default:
+			log.Errorf("Invalid command `%s`\n", ap)
+			sendTextError(inbox, fmt.Sprintf("Invalid command `%s`\n", ap))
 		}
 	}
 }

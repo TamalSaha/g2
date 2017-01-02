@@ -24,6 +24,22 @@ var (
 	invalidArg   = errors.New("invalid argument")
 )
 
+type AP string
+
+const (
+	AP_Workers  AP = "workers"
+	AP_Status   AP = "status"
+	AP_Cancel   AP = "cancel"
+	AP_Show     AP = "show"
+	AP_Create   AP = "create"
+	AP_Drop     AP = "drop"
+	AP_MaxQueue AP = "maxqueue"
+	AP_GetPid   AP = "getpid"
+	AP_Shutdown AP = "shutdown"
+	AP_Verbose  AP = "verbose"
+	AP_Version  AP = "version"
+)
+
 const (
 	ctrlCloseSession = 1000 + iota
 	ctrlGetJob
@@ -31,10 +47,10 @@ const (
 )
 
 var (
-	startJid        int64 = 0
-	jobHandlePrefix string
-	respMagic       = []byte(runtime.ResStr)
-	jidCh           = make(chan string, 50)
+	startJid     int64 = 0
+	handlePrefix string
+	respMagic    = []byte(runtime.ResStr)
+	idCh         = make(chan string, 50)
 )
 
 func init() {
@@ -49,25 +65,33 @@ func init() {
 	}
 
 	//cache prefix
-	jobHandlePrefix = fmt.Sprintf("%s-%s:-%d-%d-", runtime.JobPrefix, hn, os.Getpid(), time.Now().Unix())
+	handlePrefix = fmt.Sprintf("-%s:-%d-%d-", hn, os.Getpid(), time.Now().Unix())
 	go func() {
 		for {
-			jidCh <- genJid()
+			idCh <- genJid()
 		}
 	}()
 }
 
 func genJid() string {
 	startJid++
-	return jobHandlePrefix + strconv.FormatInt(startJid, 10)
+	return handlePrefix + strconv.FormatInt(startJid, 10)
 }
 
 func allocJobId() string {
-	return <-jidCh
+	return runtime.JobPrefix + <-idCh
 }
 
-func getScheduleJobId(handle string) string {
-	return fmt.Sprintf("%s%s", runtime.SchedJobPrefix, handle[len(runtime.JobPrefix):])
+func allocSchedJobId() string {
+	return runtime.SchedJobPrefix + <-idCh
+}
+
+func IsValidJobHandle(handle string) bool {
+	return strings.HasPrefix(handle, runtime.JobPrefix)
+}
+
+func IsValidScheduleJobHandle(handle string) bool {
+	return strings.HasPrefix(handle, runtime.SchedJobPrefix)
 }
 
 type event struct {
@@ -128,8 +152,20 @@ func sendReply(out chan []byte, tp runtime.PT, data [][]byte) {
 	out <- constructReply(tp, data)
 }
 
+func sendTextReply(out chan []byte, resp string) {
+	out <- []byte(resp)
+}
+
 func sendReplyResult(out chan []byte, data []byte) {
 	out <- data
+}
+
+func sendTextOK(out chan []byte) {
+	out <- []byte("OK\n")
+}
+
+func sendTextError(out chan []byte, errmsg string) {
+	out <- []byte(fmt.Sprintf("Error: %s\n", errmsg))
 }
 
 func constructReply(tp runtime.PT, data [][]byte) []byte {
@@ -204,6 +240,11 @@ func ReadMessage(r io.Reader) (runtime.PT, []byte, error) {
 	_, err = io.ReadFull(r, buf)
 
 	return tp, buf, err
+}
+
+func ParseTextMessage(msg string) (AP, string) {
+	dt := AP(strings.Fields(msg)[0])
+	return dt, strings.TrimSpace(msg[len(dt):])
 }
 
 func readHeader(r io.Reader) (magic uint32, tp runtime.PT, size uint32, err error) {

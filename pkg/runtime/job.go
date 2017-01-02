@@ -32,8 +32,9 @@ type Job struct {
 }
 
 type ScheduledJob struct {
-	*Job
+	JobTemplete      Job
 	SchedJobId       string
+	CronEntryID      int
 	SpecScheduleTime SpecScheduleTime
 }
 

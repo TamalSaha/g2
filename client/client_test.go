@@ -74,6 +74,7 @@ func TestClientDoSched(t *testing.T) {
 }
 
 func TestClientDo(t *testing.T) {
+	initClient(t)
 	jobHandler := func(job *Response) {
 		str := string(job.Data)
 		if str == "ABCDEF" {

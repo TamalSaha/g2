@@ -17,6 +17,6 @@ type JobQueue interface {
 
 type SchedJobQueue interface {
 	AddShedJob(sj *ScheduledJob) error
-	DeleteSchedJob(sj *ScheduledJob) error
+	DeleteSchedJob(sj *ScheduledJob) (*ScheduledJob, error)
 	GetShedJobs() ([]*ScheduledJob, error)
 }

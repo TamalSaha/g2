@@ -72,8 +72,17 @@ func TestScheduledJob(t *testing.T) {
 		fmt.Println(" Test Function executed. function name: ", "scheduledJobTest", "Parameter: ", string(job.Data()))
 		return nil, nil
 	}
+	job1 := func(job worker.Job) ([]byte, error) {
+		fmt.Println(" Test Function executed. function name: ", "scheduledJobTest", "Parameter: ", string(job.Data()))
+		return nil, nil
+	}
 	// Add the function to worker
 	if err := w.AddFunc("scheduledJobTest", scheduledJobTest, 0); err != nil {
+		fmt.Println(err)
+		return
+	}
+	// Add the function to worker
+	if err := w.AddFunc("job1", job1, 0); err != nil {
 		fmt.Println(err)
 		return
 	}
