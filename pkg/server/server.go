@@ -474,7 +474,6 @@ func (self *Server) handleProtoEvt(e *event) {
 		self.handleCtrlEvt(e)
 		return
 	}
-
 	switch e.tp {
 	case PT_CanDo:
 		w := args.t0.(*Worker)
@@ -534,7 +533,7 @@ func (self *Server) handleProtoEvt(e *event) {
 				break
 			}
 		}
-	case PT_SubmitJob, PT_SubmitJobLowBG, PT_SubmitJobLow:
+	case PT_SubmitJobLow, PT_SubmitJob, PT_SubmitJobHigh, PT_SubmitJobLowBG, PT_SubmitJobBG, PT_SubmitJobHighBG:
 		self.handleSubmitJob(e)
 	case PT_SubmitJobSched:
 		self.handleSchedJob(e)

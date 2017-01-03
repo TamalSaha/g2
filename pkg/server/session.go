@@ -118,7 +118,7 @@ func (self *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.R
 			//log.Debugf("%+v", job)
 			sendReply(inbox, PT_JobAssignUniq, [][]byte{
 				[]byte(job.Handle), []byte(job.FuncName), []byte(job.Id), job.Data})
-		case PT_SubmitJob, PT_SubmitJobLowBG, PT_SubmitJobLow:
+		case PT_SubmitJobLow, PT_SubmitJob, PT_SubmitJobHigh, PT_SubmitJobLowBG, PT_SubmitJobBG, PT_SubmitJobHighBG:
 			if self.c == nil {
 				self.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
 					ConnectAt: time.Now()}}

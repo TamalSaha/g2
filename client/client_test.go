@@ -38,7 +38,7 @@ func TestClientEcho(t *testing.T) {
 
 func TestClientDoBg(t *testing.T) {
 	initClient(t)
-	handle, err := client.DoBg("ToUpper", []byte("abcdef"), rt.JobLow)
+	handle, err := client.DoBg("ToUpper", []byte("abcdef"), rt.JobNormal)
 	if err != nil {
 		t.Error(err)
 		return
