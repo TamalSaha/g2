@@ -389,15 +389,13 @@ func cmd2Priority(cmd runtime.PT) int {
 	case runtime.PT_SubmitJobHigh, runtime.PT_SubmitJobHighBG:
 		return runtime.PRIORITY_HIGH
 	}
-
 	return runtime.PRIORITY_LOW
 }
 
 func isBackGround(cmd runtime.PT) bool {
 	switch cmd {
-	case runtime.PT_SubmitJobLowBG, runtime.PT_SubmitJobHighBG:
+	case runtime.PT_SubmitJobLowBG, runtime.PT_SubmitJobBG, runtime.PT_SubmitJobHighBG:
 		return true
 	}
-
 	return false
 }
