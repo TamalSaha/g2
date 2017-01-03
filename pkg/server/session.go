@@ -5,13 +5,13 @@ import (
 	"net"
 	"time"
 
-	"fmt"
 
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/log"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"gopkg.in/robfig/cron.v2"
 	"strings"
+	"fmt"
 )
 
 type session struct {
@@ -180,7 +180,7 @@ func (self *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Re
 		}
 		ap, arg := ParseTextMessage(trimedRcv)
 		switch ap {
-		case AP_Workers, AP_Status, AP_Show, AP_Create, AP_Drop, AP_MaxQueue, AP_GetPid, AP_Shutdown, AP_Verbose, AP_Version:
+		case AP_Workers, AP_Show, AP_Create, AP_Drop, AP_MaxQueue, AP_GetPid, AP_Shutdown, AP_Verbose, AP_Version:
 			sendTextError(inbox, fmt.Sprintf("command `%s` is currently unimplemented", ap))
 		case AP_Cancel:
 			if IsValidScheduleJobHandle(arg) {
@@ -202,6 +202,19 @@ func (self *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Re
 				log.Errorf("invalid handle `%v`\n", arg)
 				sendTextError(inbox, fmt.Sprintf("Invalid handle `%v`, valid schedule job handle should start with `S:`\n", arg))
 			}
+		case AP_Status:
+			resp := ""
+			for fnName, v := range s.funcWorker {
+				runningCnt := 0
+				for _, j := range  s.jobs {
+					if fnName == j.FuncName && j.Running {
+						runningCnt++
+					}
+				}
+				resp += fmt.Sprintf("%v\t%v\t%v\t%v\n", fnName, v.jobs.Len(), runningCnt, v.workers.Len())
+			}
+			resp+=".\n"
+			sendTextReply(inbox, resp)
 		default:
 			log.Errorf("Invalid command `%s`\n", ap)
 			sendTextError(inbox, fmt.Sprintf("Invalid command `%s`\n", ap))

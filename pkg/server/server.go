@@ -267,6 +267,7 @@ func (self *Server) handleCloseSession(e *event) error {
 			if handle != j.Handle {
 				log.Fatal("handle not match %d-%d", handle, j.Handle)
 			}
+			j.Running = false
 			self.doAddJob(j)
 		}
 	}
@@ -300,7 +301,6 @@ func (self *Server) handleGetWorker(e *event) (err error) {
 	}
 
 	log.Debugf("%+v", self.funcWorker)
-
 	if jw, ok := self.funcWorker[cando]; ok {
 		log.Debug(cando, jw.workers.Len())
 		workers := make([]*Worker, 0, jw.workers.Len())
@@ -509,6 +509,7 @@ func (self *Server) handleProtoEvt(e *event) {
 			j.ProcessAt = time.Now()
 			j.ProcessBy = sessionId
 			//track this job
+			j.Running = true
 			w.runningJobs[j.Handle] = j
 		} else { //no job
 			w.status = wsPrepareForSleep
