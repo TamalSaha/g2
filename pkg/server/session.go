@@ -5,13 +5,12 @@ import (
 	"net"
 	"time"
 
-
+	"fmt"
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/log"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"gopkg.in/robfig/cron.v2"
 	"strings"
-	"fmt"
 )
 
 type session struct {
@@ -180,7 +179,7 @@ func (self *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Re
 		}
 		ap, arg := ParseTextMessage(trimedRcv)
 		switch ap {
-		case AP_Workers, AP_Show, AP_Create, AP_Drop, AP_MaxQueue, AP_GetPid, AP_Shutdown, AP_Verbose, AP_Version:
+		case AP_Show, AP_Create, AP_Drop, AP_MaxQueue, AP_GetPid, AP_Shutdown, AP_Verbose, AP_Version:
 			sendTextError(inbox, fmt.Sprintf("command `%s` is currently unimplemented", ap))
 		case AP_Cancel:
 			if IsValidScheduleJobHandle(arg) {
@@ -206,14 +205,54 @@ func (self *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Re
 			resp := ""
 			for fnName, v := range s.funcWorker {
 				runningCnt := 0
-				for _, j := range  s.jobs {
+				for _, j := range s.jobs {
 					if fnName == j.FuncName && j.Running {
 						runningCnt++
 					}
 				}
 				resp += fmt.Sprintf("%v\t%v\t%v\t%v\n", fnName, v.jobs.Len(), runningCnt, v.workers.Len())
 			}
-			resp+=".\n"
+			resp += ".\n"
+			sendTextReply(inbox, resp)
+		case AP_PRIORITY_STATUS:
+			resp := ""
+			for fnName, v := range s.funcWorker {
+				high := 0
+				normal := 0
+				low := 0
+				for _, j := range s.jobs {
+					if fnName == j.FuncName && !j.Running {
+						switch j.Priority {
+						case JobHigh:
+							high++
+						case JobNormal:
+							normal++
+						case JobLow:
+							low++
+						}
+					}
+				}
+				resp += fmt.Sprintf("%v\t%v\t%v\t%v\t%v\n", fnName, high, normal, low, v.workers.Len())
+			}
+			resp += ".\n"
+			sendTextReply(inbox, resp)
+		case AP_Workers:
+			resp := ""
+			for _, v := range s.worker {
+				resp += fmt.Sprintf("%v %v %v : ", "-", v.Conn.RemoteAddr().String(), v.workerId)
+				isFirst := true
+				for fnName, isEnable := range v.canDo {
+					if isEnable {
+						if !isFirst {
+							resp += " "
+						}
+						isFirst = false
+						resp += fmt.Sprintf("%v", fnName)
+					}
+				}
+				resp += "\n"
+			}
+			resp += ".\n"
 			sendTextReply(inbox, resp)
 		default:
 			log.Errorf("Invalid command `%s`\n", ap)

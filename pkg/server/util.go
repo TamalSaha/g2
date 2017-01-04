@@ -27,17 +27,18 @@ var (
 type AP string
 
 const (
-	AP_Workers  AP = "workers"
-	AP_Status   AP = "status"
-	AP_Cancel   AP = "cancel"
-	AP_Show     AP = "show"
-	AP_Create   AP = "create"
-	AP_Drop     AP = "drop"
-	AP_MaxQueue AP = "maxqueue"
-	AP_GetPid   AP = "getpid"
-	AP_Shutdown AP = "shutdown"
-	AP_Verbose  AP = "verbose"
-	AP_Version  AP = "version"
+	AP_Workers         AP = "workers"
+	AP_Status          AP = "status"
+	AP_Cancel          AP = "cancel"
+	AP_Show            AP = "show"
+	AP_Create          AP = "create"
+	AP_Drop            AP = "drop"
+	AP_MaxQueue        AP = "maxqueue"
+	AP_GetPid          AP = "getpid"
+	AP_Shutdown        AP = "shutdown"
+	AP_Verbose         AP = "verbose"
+	AP_Version         AP = "version"
+	AP_PRIORITY_STATUS AP = "prioritystatus"
 )
 
 const (
