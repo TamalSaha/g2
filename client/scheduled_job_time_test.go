@@ -1,9 +1,10 @@
 package client
 
 import (
-	rt "github.com/appscode/g2/pkg/runtime"
 	"reflect"
 	"testing"
+
+	rt "github.com/appscode/g2/pkg/runtime"
 )
 
 func TestSchedTimeWithDataBytes(t *testing.T) {

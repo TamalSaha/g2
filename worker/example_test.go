@@ -3,10 +3,10 @@ package worker_test
 import (
 	"fmt"
 	"sync"
+	"testing"
 
 	rt "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/worker"
-	"testing"
 )
 
 func ExampleWorker() {

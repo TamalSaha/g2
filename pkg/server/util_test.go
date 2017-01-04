@@ -2,10 +2,10 @@ package server
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 
 	. "github.com/appscode/g2/pkg/runtime"
-	"reflect"
 )
 
 func TestDecodeArgs(t *testing.T) {
