@@ -54,11 +54,47 @@ fn2	0	1	2
 			t.Fatalf("Incorrect running: expected %d, got %d", running, status.Running)
 		}
 		if status.AvailableWorkers != available {
-			t.Fatalf("Incorrect running: expected %d, got %d", available, status.AvailableWorkers)
+			t.Fatalf("Incorrect AVAILABLE_WORKERS: expected %d, got %d", available, status.AvailableWorkers)
 		}
 	}
 	checkStatus(statuses[0], "fn1", 3, 2, 1)
 	checkStatus(statuses[1], "fn2", 0, 1, 2)
+}
+
+func TestPriorityStatus(t *testing.T) {
+	mockGearmand := MockGearmand{}
+	mockGearmand.Responses = map[string]string{
+		"prioritystatus": `fn1	3	2	1	0
+fn2	0	1	2	0
+.`,
+	}
+	ga := GearmanAdmin{&mockGearmand}
+	pStatuses, err := ga.PriorityStatus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pStatuses) != 2 {
+		t.Fatalf("Expected two prioritystatuses")
+	}
+	checkPriorityStatus := func(pStatus PriorityStatus, fn string, hq, nq, lq, available int) {
+		if pStatus.Function != fn {
+			t.Fatalf("Incorrect function: expected '%s', got '%s'", fn, pStatus.Function)
+		}
+		if pStatus.HighQueued != hq {
+			t.Fatalf("Incorrect HIGH-QUEUED: expected %d, got %d", hq, pStatus.HighQueued)
+		}
+		if pStatus.NormalQueued != nq {
+			t.Fatalf("Incorrect NORMAL-QUEUED: expected %d, got %d", nq, pStatus.NormalQueued)
+		}
+		if pStatus.LowQueued != lq {
+			t.Fatalf("Incorrect LOW-QUEUED: expected %d, got %d", lq, pStatus.LowQueued)
+		}
+		if pStatus.AvailableWorkers != available {
+			t.Fatalf("Incorrect AVAILABLE_WORKERS: expected %d, got %d", available, pStatus.AvailableWorkers)
+		}
+	}
+	checkPriorityStatus(pStatuses[0], "fn1", 3, 2, 1, 0)
+	checkPriorityStatus(pStatuses[1], "fn2", 0, 1, 2, 0)
 }
 
 func TestWorkers(t *testing.T) {
@@ -94,4 +130,33 @@ func TestWorkers(t *testing.T) {
 	checkWorker(workers[0], "74", "10.0.1.167", "-", []string{})
 	checkWorker(workers[1], "284", "10.0.2.16", "-", []string{"fn1"})
 	checkWorker(workers[2], "284", "10.0.2.16", "-", []string{"fn1", "fn2"})
+}
+
+func TestCancel(t *testing.T) {
+	mockGearmand := MockGearmand{}
+	mockGearmand.Responses = map[string]string{}
+	handleResponsePair := []struct {
+		handle   string
+		success  bool
+		response string
+	}{
+		{"S:-icee:-17700-1483598255-1", true, "OK"},
+		{"S:-icee:-17700-1483598255-2", true, "OK"},
+		{"S:-icee:-17700-1483598255-5", false, "Error: handle `S:-icee:-17700-1483598255-5` not found"},
+		{"H:-icee:-17700-1483598255-5", false, "Error: Invalid handle `H:-icee:-17700-1483598255-5`, valid schedule job handle should start with `S:`"},
+		{"a-invalid-handle", false, "Error: Invalid handle `H:-icee:-17700-1483598255-5`, valid schedule job handle should start with `S:`"},
+	}
+	for _, o := range handleResponsePair {
+		mockGearmand.Responses[fmt.Sprintf("cancel %s", o.handle)] = o.response
+	}
+	ga := GearmanAdmin{&mockGearmand}
+	for _, v := range handleResponsePair {
+		isSuccess, err := ga.Cancel(v.handle)
+		if isSuccess != v.success {
+			t.Fatalf("Expected response '%v', got '%v'", v.success, isSuccess)
+		}
+		if v.response != "OK" && err.Error() != v.response {
+			t.Fatalf("Expected error '%v', got '%v'", v.response, err.Error())
+		}
+	}
 }

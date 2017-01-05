@@ -2,6 +2,7 @@ package gearadmin
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -23,6 +24,14 @@ type Status struct {
 	Function         string
 	Total            int
 	Running          int
+	AvailableWorkers int
+}
+
+type PriorityStatus struct {
+	Function         string
+	HighQueued       int
+	NormalQueued     int
+	LowQueued        int
 	AvailableWorkers int
 }
 
@@ -66,6 +75,45 @@ func (ga GearmanAdmin) Status() ([]Status, error) {
 	return statuses, scanner.Err()
 }
 
+func (ga GearmanAdmin) PriorityStatus() ([]PriorityStatus, error) {
+	var pStatuses []PriorityStatus
+	fmt.Fprintf(ga.conn, "prioritystatus\n")
+	scanner := bufio.NewScanner(ga.conn)
+
+	for scanner.Scan() && scanner.Text() != "." {
+		toks := strings.Split(scanner.Text(), "\t")
+
+		if len(toks) != 5 {
+			return pStatuses, fmt.Errorf("unexpected prioritystatus: '%s'", scanner.Text())
+		}
+
+		hq, err := strconv.Atoi(toks[1])
+		if err != nil {
+			return pStatuses, fmt.Errorf("could not parse HIGH-QUEUED: '%s'", scanner.Text())
+		}
+		nq, err := strconv.Atoi(toks[2])
+		if err != nil {
+			return pStatuses, fmt.Errorf("could not parse NORMAL-QUEUED: '%s'", scanner.Text())
+		}
+		lq, err := strconv.Atoi(toks[3])
+		if err != nil {
+			return pStatuses, fmt.Errorf("could not parse LOW-QUEUED: '%s'", scanner.Text())
+		}
+		available, err := strconv.Atoi(toks[4])
+		if err != nil {
+			return pStatuses, fmt.Errorf("could not parse available: '%s'", scanner.Text())
+		}
+		pStatuses = append(pStatuses, PriorityStatus{
+			Function:         toks[0],
+			HighQueued:       hq,
+			NormalQueued:     nq,
+			LowQueued:        lq,
+			AvailableWorkers: available,
+		})
+	}
+	return pStatuses, scanner.Err()
+}
+
 // Workers returns a summary of workers connected to gearman.
 func (ga GearmanAdmin) Workers() ([]Worker, error) {
 	var workers []Worker
@@ -84,4 +132,17 @@ func (ga GearmanAdmin) Workers() ([]Worker, error) {
 		})
 	}
 	return workers, scanner.Err()
+}
+
+func (ga GearmanAdmin) Cancel(handle string) (bool, error) {
+	fmt.Fprintf(ga.conn, fmt.Sprintf("cancel %s\n", handle))
+	scanner := bufio.NewScanner(ga.conn)
+	if scanner.Scan() {
+		resp := scanner.Text()
+		if resp == "OK" {
+			return true, nil
+		}
+		return false, errors.New(resp)
+	}
+	return false, scanner.Err()
 }
