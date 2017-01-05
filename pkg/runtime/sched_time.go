@@ -22,11 +22,11 @@ SUBMIT_JOB_SCHED
 */
 
 type SpecScheduleTime struct {
-	Minute  string
-	Hour    string
-	Day     string
-	Month   string
-	WeekDay string
+	Minute  string `json:"minute"`
+	Hour    string `json:"hour"`
+	Day     string `json:"day"`
+	Month   string `json:"month"`
+	WeekDay string `json:"week_day"`
 }
 
 func NewSchedTime(minute, hour, dayOfMonth, month, dayOfWeek string) SpecScheduleTime {

@@ -11,12 +11,14 @@ type Db interface {
 
 type JobQueue interface {
 	AddJob(j *Job) error
-	DoneJob(j *Job) error
+	DeleteJob(j *Job) error
+	GetJob(handle string) (*Job, error)
 	GetJobs() ([]*Job, error)
 }
 
 type SchedJobQueue interface {
-	AddShedJob(sj *ScheduledJob) error
-	DeleteSchedJob(sj *ScheduledJob) (*ScheduledJob, error)
-	GetShedJobs() ([]*ScheduledJob, error)
+	AddCronJob(sj *CronJob) error
+	DeleteCronJob(sj *CronJob) (*CronJob, error)
+	GetCronJob(handle string) (*CronJob, error)
+	GetCronJobs() ([]*CronJob, error)
 }

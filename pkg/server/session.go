@@ -182,8 +182,8 @@ func (self *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Re
 		case AP_Show, AP_Create, AP_Drop, AP_MaxQueue, AP_GetPid, AP_Shutdown, AP_Verbose, AP_Version:
 			sendTextError(inbox, fmt.Sprintf("command `%s` is currently unimplemented", ap))
 		case AP_Cancel:
-			if IsValidScheduleJobHandle(arg) {
-				sj, err := s.store.DeleteSchedJob(&ScheduledJob{SchedJobId: arg})
+			if IsValidCronJobHandle(arg) {
+				sj, err := s.store.DeleteCronJob(&CronJob{Handle: arg})
 				if err == errors.ErrNotFound {
 					log.Errorf("handle `%v` not found\n", arg)
 					sendTextError(inbox, fmt.Sprintf("handle `%v` not found", arg))

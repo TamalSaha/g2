@@ -34,8 +34,21 @@ func (q *LevelDbQ) AddJob(j *Job) error {
 	return q.db.Put([]byte(j.Handle), buf, nil)
 }
 
-func (q *LevelDbQ) DoneJob(j *Job) error {
+func (q *LevelDbQ) DeleteJob(j *Job) error {
 	return q.db.Delete([]byte(j.Handle), nil)
+}
+
+func (q *LevelDbQ) GetJob(handle string) (*Job, error) {
+	data, err := q.db.Get([]byte(handle), nil)
+	if err != nil {
+		return nil, err
+	}
+	j := &Job{}
+	err = json.Unmarshal(data, j)
+	if err != nil {
+		return nil, err
+	}
+	return j, nil
 }
 
 func (q *LevelDbQ) GetJobs() ([]*Job, error) {
@@ -60,45 +73,53 @@ func (q *LevelDbQ) GetJobs() ([]*Job, error) {
 	return jobs, nil
 }
 
-func (q *LevelDbQ) AddShedJob(sj *ScheduledJob) error {
+func (q *LevelDbQ) AddCronJob(sj *CronJob) error {
 	buf, err := json.Marshal(sj)
 	if err != nil {
 		return err
 	}
-	return q.db.Put([]byte(sj.SchedJobId), buf, nil)
+	return q.db.Put([]byte(sj.Handle), buf, nil)
 }
-func (q *LevelDbQ) DeleteSchedJob(sj *ScheduledJob) (*ScheduledJob, error) {
-	data, err := q.db.Get([]byte(sj.SchedJobId), nil)
+
+func (q *LevelDbQ) GetCronJob(handle string) (*CronJob, error) {
+	data, err := q.db.Get([]byte(handle), nil)
 	if err != nil {
 		return nil, err
 	}
-	js := &ScheduledJob{}
-	err = json.Unmarshal(data, js)
+	cj := &CronJob{}
+	err = json.Unmarshal(data, cj)
 	if err != nil {
 		return nil, err
 	}
-
-	return js, q.db.Delete([]byte(sj.SchedJobId), nil)
+	return cj, nil
 }
 
-func (q *LevelDbQ) GetShedJobs() ([]*ScheduledJob, error) {
-	scheduledJobs := make([]*ScheduledJob, 0)
+func (q *LevelDbQ) DeleteCronJob(sj *CronJob) (*CronJob, error) {
+	cj, err := q.GetCronJob(sj.Handle)
+	if err != nil {
+		return nil, err
+	}
+	return cj, q.db.Delete([]byte(cj.Handle), nil)
+}
+
+func (q *LevelDbQ) GetCronJobs() ([]*CronJob, error) {
+	cronJobs := make([]*CronJob, 0)
 
 	iter := q.db.NewIterator(util.BytesPrefix([]byte(SchedJobPrefix)), nil)
 	for iter.Next() {
 		// key := iter.Key()
 		// value := iter.Value()
-		var j ScheduledJob
+		var j CronJob
 		err := json.Unmarshal(iter.Value(), &j)
 		if err != nil {
 			return nil, err
 		}
-		scheduledJobs = append(scheduledJobs, &j)
+		cronJobs = append(cronJobs, &j)
 	}
 	iter.Release()
 	err := iter.Error()
 	if err != nil {
 		return nil, err
 	}
-	return scheduledJobs, nil
+	return cronJobs, nil
 }

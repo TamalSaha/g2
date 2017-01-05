@@ -44,6 +44,7 @@ const (
 	ctrlCloseSession = 1000 + iota
 	ctrlGetJob
 	ctrlGetWorker
+	ctrlGetCronJob
 )
 
 var (
@@ -90,7 +91,7 @@ func IsValidJobHandle(handle string) bool {
 	return strings.HasPrefix(handle, runtime.JobPrefix)
 }
 
-func IsValidScheduleJobHandle(handle string) bool {
+func IsValidCronJobHandle(handle string) bool {
 	return strings.HasPrefix(handle, runtime.SchedJobPrefix)
 }
 
@@ -99,7 +100,7 @@ type event struct {
 	args          *Tuple
 	result        chan interface{}
 	fromSessionId int64
-	jobHandle     string
+	handle        string
 }
 
 type jobworkermap struct {

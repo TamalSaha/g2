@@ -48,7 +48,7 @@ func NewServer(store storage.Db) *Server {
 	}
 }
 
-func (self *Server) getAllJobs() {
+func (self *Server) loadAllJobs() {
 	jobs, err := self.store.GetJobs()
 	if err != nil {
 		log.Error(err)
@@ -63,8 +63,8 @@ func (self *Server) getAllJobs() {
 	}
 }
 
-func (self *Server) getAllSchedJobs() {
-	schedJobs, err := self.store.GetShedJobs()
+func (self *Server) loadAllCronJobs() {
+	schedJobs, err := self.store.GetCronJobs()
 	if err != nil {
 		log.Error(err)
 		return
@@ -72,7 +72,7 @@ func (self *Server) getAllSchedJobs() {
 
 	log.Debugf("load scheduled job: %+v", schedJobs)
 	for _, sj := range schedJobs {
-		self.doAddSchedJob(sj)
+		self.doAddCronJob(sj)
 	}
 }
 
@@ -93,8 +93,8 @@ func (self *Server) Start(addr string) {
 	}
 	//load background jobs from storage
 	if self.store != nil {
-		self.getAllJobs()
-		self.getAllSchedJobs()
+		self.loadAllJobs()
+		self.loadAllCronJobs()
 	}
 
 	for {
@@ -176,7 +176,7 @@ func (self *Server) doAddAndPersistJob(j *Job) {
 	self.doAddJob(j)
 }
 
-func (self *Server) doAddSchedJob(sj *ScheduledJob) (cron.EntryID, error) {
+func (self *Server) doAddCronJob(sj *CronJob) (cron.EntryID, error) {
 	return self.cronSvc.AddFunc(sj.SpecScheduleTime.String(), func() {
 		jb := &Job{
 			Handle:       allocJobId(),
@@ -247,7 +247,7 @@ func (self *Server) removeJob(j *Job) {
 	if j.IsBackGround {
 		log.Debugf("done job: %v", j.Handle)
 		if self.store != nil {
-			if err := self.store.DoneJob(j); err != nil {
+			if err := self.store.DeleteJob(j); err != nil {
 				log.Warning(err)
 			}
 		}
@@ -319,14 +319,18 @@ func (self *Server) handleGetWorker(e *event) (err error) {
 }
 
 func (self *Server) handleGetJob(e *event) (err error) {
-	log.Debug("get worker", e.jobHandle)
+	log.Debug("get jobs", e.handle)
 	var buf []byte
 	defer func() {
 		e.result <- string(buf)
 	}()
 
-	if len(e.jobHandle) == 0 {
-		buf, err = json.Marshal(self.jobs)
+	if len(e.handle) == 0 {
+		jobs := []*Job{}
+		for _, v := range self.jobs {
+			jobs = append(jobs, v)
+		}
+		buf, err = json.Marshal(jobs)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -334,11 +338,49 @@ func (self *Server) handleGetJob(e *event) (err error) {
 		return nil
 	}
 
-	if job, ok := self.jobs[e.jobHandle]; ok {
-		buf = []byte(job.String())
+	if job, ok := self.jobs[e.handle]; ok {
+		buf, err = json.Marshal(job)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
 		return nil
 	}
 
+	return
+}
+
+func (self *Server) handleGetCronJob(e *event) (err error) {
+	log.Debug("get cronjobs", e.handle)
+	var buf []byte
+	defer func() {
+		e.result <- string(buf)
+	}()
+
+	if len(e.handle) == 0 {
+		cjs, err := self.store.GetCronJobs()
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		buf, err = json.Marshal(cjs)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		return nil
+	}
+	cj, err := self.store.GetCronJob(e.handle)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	data, err := json.Marshal(cj)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	buf = []byte(data)
 	return
 }
 
@@ -351,6 +393,8 @@ func (self *Server) handleCtrlEvt(e *event) (err error) {
 		return self.handleGetJob(e)
 	case ctrlGetWorker:
 		return self.handleGetWorker(e)
+	case ctrlGetCronJob:
+		return self.handleGetCronJob(e)
 	default:
 		log.Warningf("%s, %d", e.tp, e.tp)
 	}
@@ -385,7 +429,7 @@ func (self *Server) handleSchedJob(e *event) {
 	funcName := bytes2str(args.t1)
 	st := toSpecScheduleTime(args)
 
-	sj := &ScheduledJob{
+	sj := &CronJob{
 		JobTemplete: Job{
 			Id:           bytes2str(args.t2),
 			Data:         args.t8.([]byte),
@@ -397,17 +441,17 @@ func (self *Server) handleSchedJob(e *event) {
 		},
 		SpecScheduleTime: st,
 	}
-	sj.SchedJobId = allocSchedJobId()
-	e.result <- sj.SchedJobId
+	sj.Handle = allocSchedJobId()
+	e.result <- sj.Handle
 	// persistent Cron Job
 	log.Debugf("add scheduled job %+v", sj)
-	id, err := self.doAddSchedJob(sj)
+	id, err := self.doAddCronJob(sj)
 	if err != nil {
 		log.Errorln(err)
 	}
 	sj.CronEntryID = int(id)
 	if self.store != nil {
-		if err := self.store.AddShedJob(sj); err != nil {
+		if err := self.store.AddCronJob(sj); err != nil {
 			log.Errorln(err)
 		}
 	}
