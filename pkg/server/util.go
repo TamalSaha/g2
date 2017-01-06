@@ -28,7 +28,7 @@ type AP string
 const (
 	AP_Workers         AP = "workers"
 	AP_Status          AP = "status"
-	AP_Cancel          AP = "cancel"
+	AP_Cancel          AP = "cancel-job"
 	AP_Show            AP = "show"
 	AP_Create          AP = "create"
 	AP_Drop            AP = "drop"
