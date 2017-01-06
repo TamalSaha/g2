@@ -55,29 +55,29 @@ func registerWebHandler(s *Server) {
 	m.Use(toolbox.Toolboxer(m))
 	m.Get("/debug/stats", stats.ExpvarHandler)
 
-	m.Get("/job", func(ctx *macaron.Context) string {
+	m.Get("/jobs", func(ctx *macaron.Context) string {
 		return getJob(s, ctx)
 	})
 
 	//get job information using job handle
-	m.Get("/job/:handle", func(ctx *macaron.Context) string {
+	m.Get("/jobs/:handle", func(ctx *macaron.Context) string {
 		return getJob(s, ctx)
 	})
 
-	m.Get("/worker", func(ctx *macaron.Context) string {
+	m.Get("/workers", func(ctx *macaron.Context) string {
 		return getWorker(s, ctx)
 	})
 
-	m.Get("/worker/:cando", func(ctx *macaron.Context) string {
+	m.Get("/workers/:cando", func(ctx *macaron.Context) string {
 		return getWorker(s, ctx)
 	})
 
-	m.Get("/cronjob", func(ctx *macaron.Context) string {
+	m.Get("/cronjobs", func(ctx *macaron.Context) string {
 		return getCronJob(s, ctx)
 	})
 
 	//get job information using job handle
-	m.Get("/cronjob/:handle", func(ctx *macaron.Context) string {
+	m.Get("/cronjobs/:handle", func(ctx *macaron.Context) string {
 		return getCronJob(s, ctx)
 	})
 
