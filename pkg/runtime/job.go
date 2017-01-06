@@ -33,5 +33,5 @@ type CronJob struct {
 	JobTemplete      Job              `json:"job_templete"`
 	Handle           string           `json:"cronjob_handle"`
 	CronEntryID      int              `json:"cron_entry_id"`
-	SpecScheduleTime SpecScheduleTime `json:"schedule_time"`
+	SpecScheduleTime specScheduleTime `json:"schedule_time"`
 }

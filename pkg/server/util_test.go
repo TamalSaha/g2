@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"reflect"
 	"testing"
 
 	. "github.com/appscode/g2/pkg/runtime"
@@ -56,26 +55,5 @@ func TestDecodeArgs(t *testing.T) {
 
 	if len(slice[0]) == 0 || len(slice[1]) == 0 {
 		t.Error("arg count not match")
-	}
-}
-
-func TestToSpecScheduleTime(t *testing.T) {
-	args := &Tuple{
-		t3: []byte{51, 49}, //Minute
-		t4: []byte{50},     //Hour
-		t5: []byte{52},     //Day Of Month
-		t6: []byte{49, 50}, //Month
-		t7: []byte{49},     //Week day
-	}
-	expected := SpecScheduleTime{
-		Minute:  "31",
-		Hour:    "2",
-		Day:     "4",
-		Month:   "12",
-		WeekDay: "1",
-	}
-	actual := toSpecScheduleTime(args)
-	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("Expected %v, got %v\n", expected, actual)
 	}
 }

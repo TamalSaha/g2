@@ -177,7 +177,7 @@ func (self *Server) doAddAndPersistJob(j *Job) {
 }
 
 func (self *Server) doAddCronJob(sj *CronJob) (cron.EntryID, error) {
-	return self.cronSvc.AddFunc(sj.SpecScheduleTime.String(), func() {
+	return self.cronSvc.AddFunc(sj.SpecScheduleTime.CronExpr(), func() {
 		jb := &Job{
 			Handle:       allocJobId(),
 			Id:           sj.JobTemplete.Id,
@@ -422,13 +422,15 @@ func (self *Server) handleSubmitJob(e *event) {
 	self.doAddAndPersistJob(j)
 }
 
-func (self *Server) handleSchedJob(e *event) {
+func (self *Server) handleCronJob(e *event) {
 	args := e.args
 	c := args.t0.(*Client)
 	self.client[c.SessionId] = c
 	funcName := bytes2str(args.t1)
-	st := toSpecScheduleTime(args)
-
+	sst, err := NewSchedule(bytes2str(args.t3), bytes2str(args.t4), bytes2str(args.t5), bytes2str(args.t6), bytes2str(args.t7))
+	if err != nil {
+		log.Errorln(err)
+	}
 	sj := &CronJob{
 		JobTemplete: Job{
 			Id:           bytes2str(args.t2),
@@ -439,7 +441,7 @@ func (self *Server) handleSchedJob(e *event) {
 			Priority:     cmd2Priority(e.tp),
 			IsBackGround: true,
 		},
-		SpecScheduleTime: st,
+		SpecScheduleTime: sst,
 	}
 	sj.Handle = allocSchedJobId()
 	e.result <- sj.Handle
@@ -455,7 +457,7 @@ func (self *Server) handleSchedJob(e *event) {
 			log.Errorln(err)
 		}
 	}
-	log.Debugf("Scheduled cron job added with function name `%s`, data '%s' and cron expression - '%s'\n", string(sj.JobTemplete.FuncName), string(sj.JobTemplete.Data), sj.SpecScheduleTime.String())
+	log.Debugf("Scheduled cron job added with function name `%s`, data '%s' and cron expression - '%s'\n", string(sj.JobTemplete.FuncName), string(sj.JobTemplete.Data), sj.SpecScheduleTime.CronExpr())
 }
 
 func (self *Server) handleWorkReport(e *event) {
@@ -580,7 +582,7 @@ func (self *Server) handleProtoEvt(e *event) {
 	case PT_SubmitJobLow, PT_SubmitJob, PT_SubmitJobHigh, PT_SubmitJobLowBG, PT_SubmitJobBG, PT_SubmitJobHighBG:
 		self.handleSubmitJob(e)
 	case PT_SubmitJobSched:
-		self.handleSchedJob(e)
+		self.handleCronJob(e)
 	case PT_GetStatus:
 		jobhandle := bytes2str(args.t0)
 		if job, ok := self.jobs[jobhandle]; ok {

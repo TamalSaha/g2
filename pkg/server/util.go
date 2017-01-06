@@ -205,16 +205,6 @@ func bytes2str(o interface{}) string {
 	return string(o.([]byte))
 }
 
-func toSpecScheduleTime(args *Tuple) runtime.SpecScheduleTime {
-	return runtime.SpecScheduleTime{
-		Minute:  bytes2str(args.t3),
-		Hour:    bytes2str(args.t4),
-		Day:     bytes2str(args.t5),
-		Month:   bytes2str(args.t6),
-		WeekDay: bytes2str(args.t7),
-	}
-}
-
 func bool2bytes(b interface{}) []byte {
 	if b.(bool) {
 		return []byte{'1'}

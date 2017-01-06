@@ -291,7 +291,7 @@ func (client *Client) DoBg(funcname string, data []byte, flag byte) (handle stri
 	return
 }
 
-func (client *Client) DoSched(funcname string, sts SchedTimeWithData) (handle string, err error) {
+func (client *Client) DoCron(funcname string, sts ScheduleTimedData) (handle string, err error) {
 	if client.conn == nil {
 		return "", ErrLostConn
 	}

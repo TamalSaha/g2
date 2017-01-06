@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	rt "github.com/appscode/g2/pkg/runtime"
+	"github.com/appscode/log"
 )
 
 const (
@@ -11,6 +12,16 @@ const (
 )
 
 var client *Client
+
+func init() {
+	if client == nil {
+		var err error
+		client, err = New(rt.Network, "127.0.0.1:4730")
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+}
 
 func TestClientAddServer(t *testing.T) {
 	t.Log("Add local server 127.0.0.1:4730")
@@ -24,7 +35,6 @@ func TestClientAddServer(t *testing.T) {
 }
 
 func TestClientEcho(t *testing.T) {
-	initClient(t)
 	echo, err := client.Echo([]byte(TestStr))
 	if err != nil {
 		t.Error(err)
@@ -37,7 +47,6 @@ func TestClientEcho(t *testing.T) {
 }
 
 func TestClientDoBg(t *testing.T) {
-	initClient(t)
 	handle, err := client.DoBg("ToUpper", []byte("abcdef"), rt.JobNormal)
 	if err != nil {
 		t.Error(err)
@@ -50,17 +59,14 @@ func TestClientDoBg(t *testing.T) {
 	}
 }
 
-func TestClientDoSched(t *testing.T) {
-	initClient(t)
-	handle, err := client.DoSched("scheduledJobTest", SchedTimeWithData{
-		SpecScheduleTime: rt.SpecScheduleTime{
-			Minute:  "",
-			Hour:    "",
-			Day:     "",
-			Month:   "",
-			WeekDay: "",
-		},
-		data: "Test data",
+func TestClientDoCron(t *testing.T) {
+	scd, err := rt.NewScheduleFromExpression("* * * * *")
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := client.DoCron("scheduledJobTest", ScheduleTimedData{
+		scheduledTimeData: scd.Bytes(),
+		data:              []byte("Test data"),
 	})
 	if err != nil {
 		t.Error(err)
@@ -74,7 +80,6 @@ func TestClientDoSched(t *testing.T) {
 }
 
 func TestClientDo(t *testing.T) {
-	initClient(t)
 	jobHandler := func(job *Response) {
 		str := string(job.Data)
 		if str == "ABCDEF" {
@@ -136,16 +141,4 @@ func TestClientClose(t *testing.T) {
 	if err := client.Close(); err != nil {
 		t.Error(err)
 	}
-}
-
-func initClient(t *testing.T) *Client {
-	if client == nil {
-		var err error
-		client, err = New(rt.Network, "127.0.0.1:4730")
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	return client
-
 }
