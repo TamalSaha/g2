@@ -60,12 +60,12 @@ func TestClientDoBg(t *testing.T) {
 }
 
 func TestClientDoCron(t *testing.T) {
-	scd, err := rt.NewScheduleFromExpression("* * * * *")
+	scd, err := rt.NewCronSchedule("* * * * *")
 	if err != nil {
 		t.Fatal(err)
 	}
 	handle, err := client.DoCron("scheduledJobTest", ScheduleTimedData{
-		scheduledTimeData: scd.Bytes(),
+		cronSchedule: scd,
 		data:              []byte("Test data"),
 	})
 	if err != nil {

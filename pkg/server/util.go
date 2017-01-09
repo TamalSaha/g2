@@ -213,6 +213,14 @@ func bool2bytes(b interface{}) []byte {
 	return []byte{'0'}
 }
 
+func byte2strWithFixSpace(o interface{}) string {
+	str := bytes2str(o)
+	if str == "" {
+		return "*"
+	}
+	return str
+}
+
 func int2bytes(n interface{}) []byte {
 	return []byte(strconv.Itoa(n.(int)))
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/appscode/log"
 	"github.com/ngaut/stats"
 	"gopkg.in/robfig/cron.v2"
+	"fmt"
 )
 
 type Server struct {
@@ -176,20 +177,23 @@ func (self *Server) doAddAndPersistJob(j *Job) {
 	self.doAddJob(j)
 }
 
-func (self *Server) doAddCronJob(sj *CronJob) (cron.EntryID, error) {
-	return self.cronSvc.AddFunc(sj.SpecScheduleTime.CronExpr(), func() {
-		jb := &Job{
-			Handle:       allocJobId(),
-			Id:           sj.JobTemplete.Id,
-			Data:         sj.JobTemplete.Data,
-			CreateAt:     time.Now(),
-			CreateBy:     sj.JobTemplete.CreateBy,
-			FuncName:     sj.JobTemplete.FuncName,
-			Priority:     sj.JobTemplete.Priority,
-			IsBackGround: sj.JobTemplete.IsBackGround,
-		}
-		self.doAddAndPersistJob(jb)
-	})
+func (self *Server) doAddCronJob(sj *CronJob) (cron.EntryID) {
+	return self.cronSvc.Schedule(
+		sj.SpecScheduleTime,
+		cron.FuncJob(
+			func() {
+				jb := &Job{
+					Handle:       allocJobId(),
+					Id:           sj.JobTemplete.Id,
+					Data:         sj.JobTemplete.Data,
+					CreateAt:     time.Now(),
+					CreateBy:     sj.JobTemplete.CreateBy,
+					FuncName:     sj.JobTemplete.FuncName,
+					Priority:     sj.JobTemplete.Priority,
+					IsBackGround: sj.JobTemplete.IsBackGround,
+				}
+				self.doAddAndPersistJob(jb)
+			}))
 }
 
 func (self *Server) popJob(sessionId int64) (j *Job) {
@@ -427,9 +431,16 @@ func (self *Server) handleCronJob(e *event) {
 	c := args.t0.(*Client)
 	self.client[c.SessionId] = c
 	funcName := bytes2str(args.t1)
-	sst, err := NewSchedule(bytes2str(args.t3), bytes2str(args.t4), bytes2str(args.t5), bytes2str(args.t6), bytes2str(args.t7))
+	sst, err := NewCronSchedule(fmt.Sprintf("%v %v %v %v %v",
+		byte2strWithFixSpace(args.t3),
+		byte2strWithFixSpace(args.t4),
+		byte2strWithFixSpace(args.t5),
+		byte2strWithFixSpace(args.t6),
+		byte2strWithFixSpace(args.t7)),
+	)
 	if err != nil {
 		log.Errorln(err)
+		return
 	}
 	sj := &CronJob{
 		JobTemplete: Job{
@@ -441,13 +452,13 @@ func (self *Server) handleCronJob(e *event) {
 			Priority:     cmd2Priority(e.tp),
 			IsBackGround: true,
 		},
-		SpecScheduleTime: sst,
+		SpecScheduleTime: sst.Schedule().(*cron.SpecSchedule),
 	}
 	sj.Handle = allocSchedJobId()
 	e.result <- sj.Handle
 	// persistent Cron Job
 	log.Debugf("add scheduled job %+v", sj)
-	id, err := self.doAddCronJob(sj)
+	id := self.doAddCronJob(sj)
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -457,7 +468,7 @@ func (self *Server) handleCronJob(e *event) {
 			log.Errorln(err)
 		}
 	}
-	log.Debugf("Scheduled cron job added with function name `%s`, data '%s' and cron expression - '%s'\n", string(sj.JobTemplete.FuncName), string(sj.JobTemplete.Data), sj.SpecScheduleTime.CronExpr())
+	log.Debugf("Scheduled cron job added with function name `%s`, data '%s' and cron SpecScheduleTime - '%+v'\n", string(sj.JobTemplete.FuncName), string(sj.JobTemplete.Data), sj.SpecScheduleTime)
 }
 
 func (self *Server) handleWorkReport(e *event) {
