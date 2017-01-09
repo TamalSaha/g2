@@ -9,6 +9,7 @@ import (
 	"time"
 
 	rt "github.com/appscode/g2/pkg/runtime"
+	"fmt"
 )
 
 var (
@@ -291,11 +292,16 @@ func (client *Client) DoBg(funcname string, data []byte, flag byte) (handle stri
 	return
 }
 
-func (client *Client) DoCron(funcname string, sts ScheduleTimedData) (handle string, err error) {
+func (client *Client) DoCron(funcname string, cronExpr string, functionParameter []byte) (handle string, err error) {
 	if client.conn == nil {
 		return "", ErrLostConn
 	}
-	handle, err = client.do(funcname, sts.Bytes(), rt.PT_SubmitJobSched)
+	ce, err := rt.NewCronSchedule(cronExpr)
+	if err != nil {
+		return "", err
+	}
+	dbyt := []byte(fmt.Sprintf("%v%v", string(ce.Bytes()), string(functionParameter)))
+	handle, err = client.do(funcname, dbyt, rt.PT_SubmitJobSched)
 	return
 }
 

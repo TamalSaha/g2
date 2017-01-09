@@ -60,17 +60,9 @@ func TestClientDoBg(t *testing.T) {
 }
 
 func TestClientDoCron(t *testing.T) {
-	scd, err := rt.NewCronSchedule("* * * * *")
+	handle, err := client.DoCron("scheduledJobTest", "* * * * *", []byte("test data"))
 	if err != nil {
 		t.Fatal(err)
-	}
-	handle, err := client.DoCron("scheduledJobTest", ScheduleTimedData{
-		cronSchedule: scd,
-		data:              []byte("Test data"),
-	})
-	if err != nil {
-		t.Error(err)
-		return
 	}
 	if handle == "" {
 		t.Error("Handle is empty.")

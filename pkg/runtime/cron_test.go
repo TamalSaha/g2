@@ -23,25 +23,25 @@ func TestNewCronSchedule(t *testing.T) {
 			CaseNo: 2,
 			Expr: "* 1 2 3 4",
 			HasError: false,
-			ExpectedByte: []byte{48, 0, 49, 0, 50, 0, 51, 0, 52, 0},
+			ExpectedByte: []byte{0, 49, 0, 50, 0, 51, 0, 52, 0},
 		},
 		{
 			CaseNo: 3,
 			Expr: "* * * * *",
 			HasError: false,
-			ExpectedByte: []byte{48, 0, 48, 0, 49, 0, 49, 0, 48, 0},
+			ExpectedByte: []byte{ 0, 0, 0, 0, 0},
 		},
 		{
 			CaseNo: 4,
 			Expr: "* * * 0 *",
 			HasError: true,
-			ExpectedByte: []byte{48, 0, 48, 0, 49, 0, 49, 0, 48, 0},
+			ExpectedByte: []byte{0,  0, 0, 0, 0},
 		},
 		{
 			CaseNo: 5,
 			Expr: "* * * * 0",
 			HasError: false,
-			ExpectedByte: []byte{48, 0, 48, 0, 49, 0, 49, 0, 48, 0},
+			ExpectedByte: []byte{ 0,  0, 0,  0, 48, 0},
 		},
 		{
 			CaseNo: 6,
@@ -65,7 +65,7 @@ func TestNewCronSchedule(t *testing.T) {
 		}
 	}
 
-	_, err := NewCronSchedule("@hourly")
+	_, err := NewCronSchedule("@every 1h")
 	fmt.Print(err)
 	if err == nil{
 		t.Fatalf("expected err but got `<nil>`\n")
