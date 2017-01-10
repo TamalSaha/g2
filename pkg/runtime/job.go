@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"gopkg.in/robfig/cron.v2"
 	"time"
 )
 
@@ -9,8 +8,9 @@ const (
 	PRIORITY_LOW  = 0
 	PRIORITY_HIGH = 1
 
-	JobPrefix      = "H:"
-	SchedJobPrefix = "S:"
+	JobPrefix       = "H:"
+	SchedJobPrefix  = "S:"
+	EpochTimePrefix = "UTC-"
 )
 
 type Job struct {
@@ -31,8 +31,8 @@ type Job struct {
 }
 
 type CronJob struct {
-	JobTemplete      Job                `json:"job_templete"`
-	Handle           string             `json:"cronjob_handle"`
-	CronEntryID      int                `json:"cron_entry_id"`
-	SpecScheduleTime *cron.SpecSchedule `json:"schedule_time"`
+	JobTemplete  Job    `json:"job_templete"`
+	Handle       string `json:"cronjob_handle"`
+	CronEntryID  int    `json:"cron_entry_id"`
+	ScheduleTime string `json:"schedule_time"`
 }

@@ -9,8 +9,6 @@ import (
 
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/log"
-	"github.com/syndtr/goleveldb/leveldb/errors"
-	"gopkg.in/robfig/cron.v2"
 )
 
 type session struct {
@@ -141,6 +139,18 @@ func (self *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.R
 			s.protoEvtCh <- e
 			shcedJobId := <-e.result
 			sendReply(inbox, PT_JobCreated, [][]byte{[]byte(shcedJobId.(string))})
+		case PT_SubmitJobEpoch:
+			if self.c == nil {
+				self.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
+					ConnectAt: time.Now()}}
+			}
+			e := &event{tp: tp,
+				args:   &Tuple{t0: self.c, t1: args[0], t2: args[1], t3: args[2], t4: args[3]},
+				result: createResCh(),
+			}
+			s.protoEvtCh <- e
+			jobId := <-e.result
+			sendReply(inbox, PT_JobCreated, [][]byte{[]byte(jobId.(string))})
 		case PT_GetStatus:
 			e := &event{tp: tp, args: &Tuple{t0: args[0]},
 				result: createResCh()}
@@ -183,18 +193,12 @@ func (self *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Re
 			sendTextError(inbox, fmt.Sprintf("command `%s` is currently unimplemented", ap))
 		case AP_Cancel:
 			if IsValidCronJobHandle(arg) {
-				sj, err := s.store.DeleteCronJob(&CronJob{Handle: arg})
-				if err == errors.ErrNotFound {
-					log.Errorf("handle `%v` not found\n", arg)
-					sendTextError(inbox, fmt.Sprintf("handle `%v` not found", arg))
-					continue
-				}
+				err := s.DeleteCronJob(&CronJob{Handle: arg})
 				if err != nil {
 					log.Errorln(err)
 					sendTextError(inbox, err.Error())
 					continue
 				}
-				s.cronSvc.Remove(cron.EntryID(sj.CronEntryID))
 				log.Debugf("job `%v` successfully cancelled.\n", arg)
 				sendTextOK(inbox)
 			} else {

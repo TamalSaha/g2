@@ -1,23 +1,26 @@
 package runtime
 
 import (
-	"gopkg.in/robfig/cron.v2"
-	"github.com/appscode/errors"
 	"fmt"
+	"github.com/appscode/errors"
+	"gopkg.in/robfig/cron.v2"
 )
 
-const starBit  = 1<<63
+const starBit = 1 << 63
+
 type CronSpecInterface interface {
 	Bytes() []byte
+	Expr() string
 	Schedule() cron.Schedule
 }
 
 type cronSpec struct {
-	specByte []byte
-	schedule *cron.SpecSchedule
+	specByte   []byte
+	expression string
+	schedule   *cron.SpecSchedule
 }
 
-func NewCronSchedule(expr string) (CronSpecInterface, error)  {
+func NewCronSchedule(expr string) (CronSpecInterface, error) {
 	scd, err := cron.Parse(expr)
 	if err != nil {
 		return nil, err
@@ -28,27 +31,32 @@ func NewCronSchedule(expr string) (CronSpecInterface, error)  {
 	}
 	cronByte := []byte(fmt.Sprintf("%v\x00%v\x00%v\x00%v\x00%v\x00", fix(specScd.Minute), fix(specScd.Hour), fix(specScd.Dom), fix(specScd.Month), fix(specScd.Dow)))
 	return cronSpec{
-		specByte: cronByte,
-		schedule: specScd,
+		specByte:   cronByte,
+		expression: expr,
+		schedule:   specScd,
 	}, nil
 
 }
 
-func (c cronSpec) Schedule() cron.Schedule  {
+func (c cronSpec) Schedule() cron.Schedule {
 	return c.schedule
 }
 
-func (c cronSpec) Bytes() []byte  {
+func (c cronSpec) Bytes() []byte {
 	return c.specByte
 }
 
-func fix(n uint64) string{
+func (c cronSpec) Expr() string {
+	return c.expression
+}
+
+func fix(n uint64) string {
 	if hasStar(n) {
 		return ""
 	}
 	var i uint64
-	for i = 0; i<64; i++ {
-		if((1<<i)&n) != 0 {
+	for i = 0; i < 64; i++ {
+		if ((1 << i) & n) != 0 {
 			return fmt.Sprintf("%v", i)
 		}
 	}
@@ -56,5 +64,5 @@ func fix(n uint64) string{
 }
 
 func hasStar(n uint64) bool {
-	return (n&starBit)!=0
+	return (n & starBit) != 0
 }

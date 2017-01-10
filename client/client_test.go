@@ -60,7 +60,19 @@ func TestClientDoBg(t *testing.T) {
 }
 
 func TestClientDoCron(t *testing.T) {
-	handle, err := client.DoCron("scheduledJobTest", "* * * * *", []byte("test data"))
+	handle, err := client.DoCron("scheduledJobTest", "26 21 10 1 * 2017", []byte("test data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if handle == "" {
+		t.Error("Handle is empty.")
+	} else {
+		t.Log(handle)
+	}
+}
+
+func TestClientDoAt(t *testing.T) {
+	handle, err := client.DoAt("scheduledJobTest", 1484160580, []byte("test data"))
 	if err != nil {
 		t.Fatal(err)
 	}

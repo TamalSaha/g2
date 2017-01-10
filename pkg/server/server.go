@@ -8,12 +8,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"fmt"
+	"github.com/appscode/errors"
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/pkg/storage"
 	"github.com/appscode/log"
 	"github.com/ngaut/stats"
+	lberror "github.com/syndtr/goleveldb/leveldb/errors"
 	"gopkg.in/robfig/cron.v2"
-	"fmt"
+	"strings"
 )
 
 type Server struct {
@@ -70,7 +73,6 @@ func (self *Server) loadAllCronJobs() {
 		log.Error(err)
 		return
 	}
-
 	log.Debugf("load scheduled job: %+v", schedJobs)
 	for _, sj := range schedJobs {
 		self.doAddCronJob(sj)
@@ -84,7 +86,6 @@ func (self *Server) Start(addr string) {
 	}
 
 	go self.EvtLoop()
-
 	log.Debug("listening on", addr)
 
 	go registerWebHandler(self)
@@ -177,23 +178,63 @@ func (self *Server) doAddAndPersistJob(j *Job) {
 	self.doAddJob(j)
 }
 
-func (self *Server) doAddCronJob(sj *CronJob) (cron.EntryID) {
-	return self.cronSvc.Schedule(
-		sj.SpecScheduleTime,
-		cron.FuncJob(
-			func() {
-				jb := &Job{
-					Handle:       allocJobId(),
-					Id:           sj.JobTemplete.Id,
-					Data:         sj.JobTemplete.Data,
-					CreateAt:     time.Now(),
-					CreateBy:     sj.JobTemplete.CreateBy,
-					FuncName:     sj.JobTemplete.FuncName,
-					Priority:     sj.JobTemplete.Priority,
-					IsBackGround: sj.JobTemplete.IsBackGround,
-				}
-				self.doAddAndPersistJob(jb)
-			}))
+func (self *Server) doAddCronJob(sj *CronJob) cron.EntryID {
+
+	if strings.HasPrefix(sj.ScheduleTime, EpochTimePrefix) {
+		value, err := strconv.ParseInt(sj.ScheduleTime[len(EpochTimePrefix):], 10, 64)
+		if err != nil {
+			log.Errorln(err)
+		}
+		self.doAddEpochJob(sj, value)
+	} else {
+		scdT, err := NewCronSchedule(sj.ScheduleTime)
+		if err != nil {
+			log.Errorln(err)
+			return cron.EntryID(0)
+		}
+		return self.cronSvc.Schedule(
+			scdT.Schedule(),
+			cron.FuncJob(
+				func() {
+					jb := &Job{
+						Handle:       allocJobId(),
+						Id:           sj.JobTemplete.Id,
+						Data:         sj.JobTemplete.Data,
+						CreateAt:     time.Now(),
+						CreateBy:     sj.JobTemplete.CreateBy,
+						FuncName:     sj.JobTemplete.FuncName,
+						Priority:     sj.JobTemplete.Priority,
+						IsBackGround: sj.JobTemplete.IsBackGround,
+					}
+					self.doAddAndPersistJob(jb)
+				}))
+	}
+	return cron.EntryID(0)
+}
+
+func (self *Server) doAddEpochJob(cj *CronJob, epoch int64) {
+	j := &Job{
+		Handle:       allocJobId(),
+		Id:           cj.JobTemplete.Id,
+		Data:         cj.JobTemplete.Data,
+		CreateAt:     time.Now(),
+		CreateBy:     cj.JobTemplete.CreateBy,
+		FuncName:     cj.JobTemplete.FuncName,
+		Priority:     cj.JobTemplete.Priority,
+		IsBackGround: cj.JobTemplete.IsBackGround,
+	}
+	after := epoch - time.Now().UTC().Unix()
+	if after < 0 {
+		after = 0
+	}
+	time.AfterFunc(time.Second*time.Duration(after), func() {
+		self.doAddAndPersistJob(j)
+		err := self.DeleteCronJob(cj)
+		if err != nil {
+			log.Errorln(err)
+		}
+	})
+
 }
 
 func (self *Server) popJob(sessionId int64) (j *Job) {
@@ -452,7 +493,7 @@ func (self *Server) handleCronJob(e *event) {
 			Priority:     cmd2Priority(e.tp),
 			IsBackGround: true,
 		},
-		SpecScheduleTime: sst.Schedule().(*cron.SpecSchedule),
+		ScheduleTime: sst.Expr(),
 	}
 	sj.Handle = allocSchedJobId()
 	e.result <- sj.Handle
@@ -468,7 +509,43 @@ func (self *Server) handleCronJob(e *event) {
 			log.Errorln(err)
 		}
 	}
-	log.Debugf("Scheduled cron job added with function name `%s`, data '%s' and cron SpecScheduleTime - '%+v'\n", string(sj.JobTemplete.FuncName), string(sj.JobTemplete.Data), sj.SpecScheduleTime)
+	log.Debugf("Scheduled cron job added with function name `%s`, data '%s' and cron SpecScheduleTime - '%+v'\n", string(sj.JobTemplete.FuncName), string(sj.JobTemplete.Data), sj.ScheduleTime)
+}
+
+func (self *Server) handleSubmitEpochJob(e *event) {
+	args := e.args
+	c := args.t0.(*Client)
+	self.client[c.SessionId] = c
+	funcName := bytes2str(args.t1)
+	epochStr := bytes2str(args.t3)
+	val, err := strconv.ParseInt(epochStr, 10, 64)
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
+	sj := &CronJob{
+		JobTemplete: Job{
+			Id:           bytes2str(args.t2),
+			Data:         args.t4.([]byte),
+			CreateAt:     time.Now(),
+			CreateBy:     c.SessionId,
+			FuncName:     funcName,
+			Priority:     cmd2Priority(e.tp),
+			IsBackGround: true,
+		},
+		ScheduleTime: EpochTimePrefix + epochStr,
+	}
+	sj.Handle = allocSchedJobId()
+	e.result <- sj.Handle
+
+	// persistent Cron Job
+	log.Debugf("add scheduled epoch job %+v", sj)
+	self.doAddEpochJob(sj, val)
+	if self.store != nil {
+		if err := self.store.AddCronJob(sj); err != nil {
+			log.Errorln(err)
+		}
+	}
 }
 
 func (self *Server) handleWorkReport(e *event) {
@@ -594,6 +671,8 @@ func (self *Server) handleProtoEvt(e *event) {
 		self.handleSubmitJob(e)
 	case PT_SubmitJobSched:
 		self.handleCronJob(e)
+	case PT_SubmitJobEpoch:
+		self.handleSubmitEpochJob(e)
 	case PT_GetStatus:
 		jobhandle := bytes2str(args.t0)
 		if job, ok := self.jobs[jobhandle]; ok {
@@ -648,4 +727,19 @@ func (self *Server) EvtLoop() {
 
 func (self *Server) allocSessionId() int64 {
 	return atomic.AddInt64(&self.startSessionId, 1)
+}
+
+func (self *Server) DeleteCronJob(cj *CronJob) error {
+	sj, err := self.store.DeleteCronJob(cj)
+	if err == lberror.ErrNotFound {
+		log.Errorf("handle `%v` not found\n", cj.Handle)
+		return errors.NewGoError(fmt.Sprintf("handle `%v` not found", cj.Handle))
+	}
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+	self.cronSvc.Remove(cron.EntryID(sj.CronEntryID))
+	log.Debugf("job `%v` successfully cancelled.\n", cj.Handle)
+	return nil
 }
