@@ -60,7 +60,7 @@ func TestClientDoBg(t *testing.T) {
 }
 
 func TestClientDoCron(t *testing.T) {
-	handle, err := client.DoCron("scheduledJobTest", "26 21 10 1 * 2017", []byte("test data"))
+	handle, err := client.DoCron("scheduledJobTest", "* * * * *", []byte("test data"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,30 +2,27 @@ package client
 
 import (
 	"testing"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestToEpoch(t *testing.T) {
 	testData := []struct {
-		tc       int
 		exp      string
 		val      int64
 		hasError bool
 	}{
-		{1, "* * * * *", 0, true},
-		{2, "28 9 10 1 2017", 1484040480, false},
-		{3, "28 10 1 2017", 0, true},
-		{4, "28 9 10 1 1970", 811680, false},
+		{"* * * * *", 0, true},
+		{"28 9 10 1 2017", 1484018880, false},
+		{"28 10 1 2017", 0, true},
+		{"28 9 10 1 1970", 790080, false},
 	}
 	for _, td := range testData {
 		num, err := ToEpoch(td.exp)
-		if td.hasError && err == nil {
-			t.Fatalf("case %v: expected error but got no error", td.tc)
-		}
-		if !td.hasError && err != nil {
-			t.Fatalf("case %v: expected not error but error got `%v`", td.tc, err)
-		}
-		if num != td.val {
-			t.Errorf("case %v: expected %v but got %v", td.tc, td.val, num)
+		if td.hasError {
+			assert.NotNil(t, err)
+		}else{
+			assert.Nil(t, err)
+			assert.Equal(t, td.val, num)
 		}
 	}
 }
@@ -61,14 +58,11 @@ func TestValidateAndGet(t *testing.T) {
 	}
 	for _, td := range testData {
 		num, err := validateAndGet(td.str, td.b)
-		if td.hasError && err == nil {
-			t.Fatalf("case %v: expected error but got no error", td.tc)
-		}
-		if !td.hasError && err != nil {
-			t.Fatalf("case %v: expected not error but error got `%v`", td.tc, err)
-		}
-		if num != td.val {
-			t.Errorf("case %v: expected %v but got %v", td.tc, td.val, num)
+		if td.hasError {
+			assert.NotNil(t, err)
+		}else{
+			assert.Nil(t, err)
+			assert.Equal(t, td.val, num)
 		}
 	}
 }

@@ -11,7 +11,7 @@ type Db interface {
 
 type JobQueue interface {
 	AddJob(j *Job) error
-	DeleteJob(j *Job) error
+	DeleteJob(j *Job, isSuccess bool) error
 	GetJob(handle string) (*Job, error)
 	GetJobs() ([]*Job, error)
 }

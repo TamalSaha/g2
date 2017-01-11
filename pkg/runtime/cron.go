@@ -29,13 +29,12 @@ func NewCronSchedule(expr string) (CronSpecInterface, error) {
 	if !ok {
 		return nil, errors.New("invalid cron expression")
 	}
-	cronByte := []byte(fmt.Sprintf("%v\x00%v\x00%v\x00%v\x00%v\x00", fix(specScd.Minute), fix(specScd.Hour), fix(specScd.Dom), fix(specScd.Month), fix(specScd.Dow)))
+	cronByte := getBytes(specScd.Minute, specScd.Hour, specScd.Dom, specScd.Month, specScd.Dow)
 	return cronSpec{
 		specByte:   cronByte,
 		expression: expr,
 		schedule:   specScd,
 	}, nil
-
 }
 
 func (c cronSpec) Schedule() cron.Schedule {
@@ -50,17 +49,29 @@ func (c cronSpec) Expr() string {
 	return c.expression
 }
 
-func fix(n uint64) string {
+func getBytes(data ...uint64) []byte {
+	var res []byte = make([]byte, 0)
+	for _, val := range data {
+		res = append(res, []byte(fmt.Sprintf("%v\x00", toStringOrEmptyForStar(val)))...)
+	}
+	return res
+}
+
+func toStringOrEmptyForStar(n uint64) string {
 	if hasStar(n) {
 		return ""
 	}
+	return fmt.Sprintf("%v", firstSetBitPos(n))
+}
+
+func firstSetBitPos(n uint64) uint64 {
 	var i uint64
 	for i = 0; i < 64; i++ {
 		if ((1 << i) & n) != 0 {
-			return fmt.Sprintf("%v", i)
+			return i
 		}
 	}
-	return fmt.Sprintf("%v", i)
+	return i
 }
 
 func hasStar(n uint64) bool {

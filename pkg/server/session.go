@@ -17,25 +17,25 @@ type session struct {
 	c         *Client
 }
 
-func (self *session) getWorker(sessionId int64, inbox chan []byte, conn net.Conn) *Worker {
-	if self.w != nil {
-		return self.w
+func (s *session) getWorker(sessionId int64, inbox chan []byte, conn net.Conn) *Worker {
+	if s.w != nil {
+		return s.w
 	}
 
-	self.w = &Worker{
+	s.w = &Worker{
 		Conn: conn, status: wsSleep, Session: Session{SessionId: sessionId,
 			in: inbox, ConnectAt: time.Now()}, runningJobs: make(map[string]*Job),
 		canDo: make(map[string]bool)}
 
-	return self.w
+	return s.w
 }
 
-func (self *session) handleConnection(s *Server, conn net.Conn) {
+func (se *session) handleConnection(s *Server, conn net.Conn) {
 	sessionId := s.allocSessionId()
 	inbox := make(chan []byte, 200)
 	out := make(chan []byte, 200)
 	defer func() {
-		if self.w != nil || self.c != nil {
+		if se.w != nil || se.c != nil {
 			e := &event{tp: ctrlCloseSession, fromSessionId: sessionId,
 				result: createResCh()}
 			s.protoEvtCh <- e
@@ -59,14 +59,14 @@ func (self *session) handleConnection(s *Server, conn net.Conn) {
 		return
 	}
 	if fb[0] == byte(0) {
-		self.handleBinaryConnection(s, conn, r, sessionId, inbox)
+		se.handleBinaryConnection(s, conn, r, sessionId, inbox)
 	} else {
-		self.handleAdminConnection(s, conn, r, sessionId, inbox)
+		se.handleAdminConnection(s, conn, r, sessionId, inbox)
 	}
 
 }
 
-func (self *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.Reader, sessionId int64, inbox chan []byte) {
+func (se *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.Reader, sessionId int64, inbox chan []byte) {
 	for {
 		tp, buf, err := ReadMessage(r)
 		if err != nil {
@@ -83,22 +83,22 @@ func (self *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.R
 
 		switch tp {
 		case PT_CanDo, PT_CanDoTimeout: //todo: CAN_DO_TIMEOUT timeout support
-			self.w = self.getWorker(sessionId, inbox, conn)
+			se.w = se.getWorker(sessionId, inbox, conn)
 			s.protoEvtCh <- &event{tp: tp, args: &Tuple{
-				t0: self.w, t1: string(args[0])}}
+				t0: se.w, t1: string(args[0])}}
 		case PT_CantDo:
 			s.protoEvtCh <- &event{tp: tp, fromSessionId: sessionId,
 				args: &Tuple{t0: string(args[0])}}
 		case PT_EchoReq:
 			sendReply(inbox, PT_EchoRes, [][]byte{buf})
 		case PT_PreSleep:
-			self.w = self.getWorker(sessionId, inbox, conn)
-			s.protoEvtCh <- &event{tp: tp, args: &Tuple{t0: self.w}, fromSessionId: sessionId}
+			se.w = se.getWorker(sessionId, inbox, conn)
+			s.protoEvtCh <- &event{tp: tp, args: &Tuple{t0: se.w}, fromSessionId: sessionId}
 		case PT_SetClientId:
-			self.w = self.getWorker(sessionId, inbox, conn)
-			s.protoEvtCh <- &event{tp: tp, args: &Tuple{t0: self.w, t1: string(args[0])}}
+			se.w = se.getWorker(sessionId, inbox, conn)
+			s.protoEvtCh <- &event{tp: tp, args: &Tuple{t0: se.w, t1: string(args[0])}}
 		case PT_GrabJobUniq:
-			if self.w == nil {
+			if se.w == nil {
 				log.Errorf("can't perform %s, need send CAN_DO first", tp.String())
 				return
 			}
@@ -116,36 +116,36 @@ func (self *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.R
 			sendReply(inbox, PT_JobAssignUniq, [][]byte{
 				[]byte(job.Handle), []byte(job.FuncName), []byte(job.Id), job.Data})
 		case PT_SubmitJobLow, PT_SubmitJob, PT_SubmitJobHigh, PT_SubmitJobLowBG, PT_SubmitJobBG, PT_SubmitJobHighBG:
-			if self.c == nil {
-				self.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
+			if se.c == nil {
+				se.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
 					ConnectAt: time.Now()}}
 			}
 			e := &event{tp: tp,
-				args:   &Tuple{t0: self.c, t1: args[0], t2: args[1], t3: args[2]},
+				args:   &Tuple{t0: se.c, t1: args[0], t2: args[1], t3: args[2]},
 				result: createResCh(),
 			}
 			s.protoEvtCh <- e
 			handle := <-e.result
 			sendReply(inbox, PT_JobCreated, [][]byte{[]byte(handle.(string))})
 		case PT_SubmitJobSched:
-			if self.c == nil {
-				self.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
+			if se.c == nil {
+				se.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
 					ConnectAt: time.Now()}}
 			}
 			e := &event{tp: tp,
-				args:   &Tuple{t0: self.c, t1: args[0], t2: args[1], t3: args[2], t4: args[3], t5: args[4], t6: args[5], t7: args[6], t8: args[7]},
+				args:   &Tuple{t0: se.c, t1: args[0], t2: args[1], t3: args[2], t4: args[3], t5: args[4], t6: args[5], t7: args[6], t8: args[7]},
 				result: createResCh(),
 			}
 			s.protoEvtCh <- e
 			shcedJobId := <-e.result
 			sendReply(inbox, PT_JobCreated, [][]byte{[]byte(shcedJobId.(string))})
 		case PT_SubmitJobEpoch:
-			if self.c == nil {
-				self.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
+			if se.c == nil {
+				se.c = &Client{Session: Session{SessionId: sessionId, in: inbox,
 					ConnectAt: time.Now()}}
 			}
 			e := &event{tp: tp,
-				args:   &Tuple{t0: self.c, t1: args[0], t2: args[1], t3: args[2], t4: args[3]},
+				args:   &Tuple{t0: se.c, t1: args[0], t2: args[1], t3: args[2], t4: args[3]},
 				result: createResCh(),
 			}
 			s.protoEvtCh <- e
@@ -163,7 +163,7 @@ func (self *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.R
 				int2bytes(resp.t4)})
 		case PT_WorkData, PT_WorkWarning, PT_WorkStatus, PT_WorkComplete,
 			PT_WorkFail, PT_WorkException:
-			if self.w == nil {
+			if se.w == nil {
 				log.Errorf("can't perform %s, need send CAN_DO first", tp.String())
 				return
 			}
@@ -175,7 +175,7 @@ func (self *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.R
 	}
 }
 
-func (self *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Reader, sessionId int64, inbox chan []byte) {
+func (se *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Reader, sessionId int64, inbox chan []byte) {
 	for {
 		rcv, err := r.ReadBytes('\n')
 		if err != nil {
