@@ -4,12 +4,11 @@ package client
 
 import (
 	"bufio"
+	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
-
-	"fmt"
-	"strings"
 
 	"github.com/appscode/errors"
 	rt "github.com/appscode/g2/pkg/runtime"

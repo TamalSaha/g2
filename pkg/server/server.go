@@ -3,13 +3,12 @@ package server
 import (
 	"container/list"
 	"encoding/json"
+	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
-
-	"fmt"
-	"strings"
 
 	"github.com/appscode/errors"
 	. "github.com/appscode/g2/pkg/runtime"

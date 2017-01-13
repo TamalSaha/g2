@@ -5,7 +5,6 @@ package leveldbq
 import (
 	"encoding/json"
 	"strings"
-
 	"sync"
 
 	. "github.com/appscode/g2/pkg/runtime"
