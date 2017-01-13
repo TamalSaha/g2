@@ -2,6 +2,7 @@ package client
 
 import (
 	"testing"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,7 +21,7 @@ func TestToEpoch(t *testing.T) {
 		num, err := ToEpoch(td.exp)
 		if td.hasError {
 			assert.NotNil(t, err)
-		}else{
+		} else {
 			assert.Nil(t, err)
 			assert.Equal(t, td.val, num)
 		}
@@ -60,7 +61,7 @@ func TestValidateAndGet(t *testing.T) {
 		num, err := validateAndGet(td.str, td.b)
 		if td.hasError {
 			assert.NotNil(t, err)
-		}else{
+		} else {
 			assert.Nil(t, err)
 			assert.Equal(t, td.val, num)
 		}

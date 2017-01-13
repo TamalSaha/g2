@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"fmt"
+	"strings"
+
 	"github.com/appscode/errors"
 	rt "github.com/appscode/g2/pkg/runtime"
-	"strings"
 )
 
 var (
@@ -41,7 +42,7 @@ type responseHandlerMap struct {
 }
 
 func newResponseHandlerMap() *responseHandlerMap {
-	return &responseHandlerMap{holder: make(map[string]ResponseHandler, rt.QueueSize)}
+	return &responseHandlerMap{holder: make(map[string]ResponseHandler, int(rt.QueueSize))}
 }
 
 func (r *responseHandlerMap) remove(key string) {

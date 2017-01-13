@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"strings"
 
+	"sync"
+
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/pkg/storage"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"sync"
 )
 
 type LevelDbQ struct {
