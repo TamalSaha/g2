@@ -121,13 +121,13 @@ func (q *LevelDbQ) UpdateCronJob(handle string, updatedValue map[string]interfac
 	if err != nil {
 		return err
 	}
-	zeroValue := reflect.Value{}
 	for k, v := range updatedValue {
 		field := reflect.ValueOf(cj).Elem().FieldByName(k)
-		if field == zeroValue {
-			log.Errorf("field not found")
+		if field.IsValid() {
+			field.Set(reflect.ValueOf(v))
+		} else {
+			log.Warning("field not found")
 		}
-		field.Set(reflect.ValueOf(v))
 	}
 	return q.AddCronJob(cj)
 }
