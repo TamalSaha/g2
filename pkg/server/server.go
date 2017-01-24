@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/appscode/errors"
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/pkg/storage"
 	"github.com/appscode/log"
@@ -58,11 +57,11 @@ func (s *Server) loadAllJobs() {
 		log.Error(err)
 		return
 	}
-
-	log.Debugf("%+v", jobs)
+	log.Debugln("....................loading job.........................")
 	for _, j := range jobs {
 		j.ProcessBy = 0 //no body handle it now
 		j.CreateBy = 0  //clear
+		log.Debugf("handle: %v\tfunc: %v\tbg: %v", j.Handle, j.FuncName, j.IsBackGround)
 		s.doAddJob(j)
 	}
 }
@@ -73,11 +72,13 @@ func (s *Server) loadAllCronJobs() {
 		log.Error(err)
 		return
 	}
-	log.Debugf("load scheduled job: %+v", schedJobs)
+	log.Debugln("......................loading cron job.......................")
 	for _, sj := range schedJobs {
 		if epoch, ok := s.ExpressionToEpoch(sj.Expression); ok {
+			log.Debugf("handle: %v func: %v schedule: %v", sj.Handle, sj.JobTemplete.FuncName, time.Unix(epoch, 0).Local())
 			s.doAddEpochJob(sj, epoch)
 		} else {
+			log.Debugf("handle: %v func: %v expr: %v", sj.Handle, sj.JobTemplete.FuncName, sj.Expression)
 			s.doAddCronJob(sj)
 		}
 	}
@@ -93,7 +94,7 @@ func (s *Server) Start(addr string) {
 	log.Debug("listening on", addr)
 
 	go registerWebHandler(s)
-
+	go s.WatcherLoop()
 	if s.cronSvc != nil {
 		s.cronSvc.Start()
 	}
@@ -173,7 +174,7 @@ func (s *Server) doAddJob(j *Job) {
 
 func (s *Server) doAddAndPersistJob(j *Job) {
 	// persistent job
-	log.Debugf("add job %+v", j)
+	log.Debugf("add job with handle: %v func: %v bg: %v", j.Handle, j.FuncName, j.IsBackGround)
 	if s.store != nil {
 		if err := s.store.AddJob(j); err != nil {
 			log.Warning(err)
@@ -272,7 +273,7 @@ func (s *Server) wakeupWorker(funcName string) bool {
 			continue
 		}
 
-		log.Debug("wakeup sessionId", w.SessionId)
+		log.Debug("wakeup sessionId ", w.SessionId)
 
 		w.Send(wakeupReply)
 		return true
@@ -321,7 +322,7 @@ func (s *Server) handleCloseSession(e *event) error {
 		}
 	}
 	if c, ok := s.client[sessionId]; ok {
-		log.Debug("removeClient sessionId", sessionId)
+		log.Debug("removeClient with sessionId ", sessionId)
 		delete(s.client, c.SessionId)
 	}
 	e.result <- true //notify close finish
@@ -335,7 +336,7 @@ func (s *Server) handleGetWorker(e *event) (err error) {
 		e.result <- string(buf)
 	}()
 	cando := e.args.t0.(string)
-	log.Debug("get worker", cando)
+	log.Debug("get worker ", cando)
 	if len(cando) == 0 {
 		workers := make([]*Worker, 0, len(s.worker))
 		for _, v := range s.worker {
@@ -349,9 +350,8 @@ func (s *Server) handleGetWorker(e *event) (err error) {
 		return nil
 	}
 
-	log.Debugf("%+v", s.funcWorker)
 	if jw, ok := s.funcWorker[cando]; ok {
-		log.Debug(cando, jw.workers.Len())
+		log.Debugf("func: %v #workers: %v", cando, jw.workers.Len())
 		workers := make([]*Worker, 0, jw.workers.Len())
 		for it := jw.workers.Front(); it != nil; it = it.Next() {
 			workers = append(workers, it.Value.(*Worker))
@@ -368,7 +368,7 @@ func (s *Server) handleGetWorker(e *event) (err error) {
 }
 
 func (s *Server) handleGetJob(e *event) (err error) {
-	log.Debug("get jobs", e.handle)
+	log.Debug("get jobs ", e.handle)
 	var buf []byte
 	defer func() {
 		e.result <- string(buf)
@@ -400,7 +400,7 @@ func (s *Server) handleGetJob(e *event) (err error) {
 }
 
 func (s *Server) handleGetCronJob(e *event) (err error) {
-	log.Debug("get cronjobs", e.handle)
+	log.Debug("get cronjobs ", e.handle)
 	var buf []byte
 	defer func() {
 		e.result <- string(buf)
@@ -502,7 +502,6 @@ func (s *Server) handleCronJob(e *event) {
 	sj.Handle = allocSchedJobId()
 	e.result <- sj.Handle
 	// persistent Cron Job
-	log.Debugf("add scheduled job %+v", sj)
 	id := s.doAddCronJob(sj)
 	sj.CronEntryID = int(id)
 	scdT, err := NewCronSchedule(sj.Expression)
@@ -515,7 +514,7 @@ func (s *Server) handleCronJob(e *event) {
 			log.Errorln(err)
 		}
 	}
-	log.Debugf("Scheduled cron job added with function name `%s`, data '%s' and cron SpecScheduleTime - '%+v'\n", string(sj.JobTemplete.FuncName), string(sj.JobTemplete.Data), sj.Expression)
+	log.Debugf("add cron job with handle: %v func: %v expr: %v", sj.Handle, sj.JobTemplete.FuncName, sj.Expression)
 }
 
 func (s *Server) handleSubmitEpochJob(e *event) {
@@ -546,13 +545,13 @@ func (s *Server) handleSubmitEpochJob(e *event) {
 	epoch, _ := s.ExpressionToEpoch(sj.Expression)
 	sj.Next = time.Unix(epoch, 0)
 	// persistent Cron Job
-	log.Debugf("add scheduled epoch job %+v", sj)
 	s.doAddEpochJob(sj, val)
 	if s.store != nil {
 		if err := s.store.AddCronJob(sj); err != nil {
 			log.Errorln(err)
 		}
 	}
+	log.Debugf("add epoch job with handle: %v func: %v schedule: %v", sj.Handle, sj.JobTemplete.FuncName, time.Unix(epoch, 0).Local())
 }
 
 func (s *Server) handleWorkReport(e *event) {
@@ -667,7 +666,7 @@ func (s *Server) handleProtoEvt(e *event) {
 		}
 
 		w.status = wsSleep
-		log.Debugf("worker sessionId %d sleep", sessionId)
+		log.Debugf("worker with sessionId %d sleep", sessionId)
 		//check if there are any jobs for this worker
 		for k := range w.canDo {
 			if s.wakeupWorker(k) {
@@ -732,6 +731,46 @@ func (s *Server) EvtLoop() {
 	}
 }
 
+func (s *Server) WatcherLoop() {
+	ticker := time.NewTicker(10 * time.Minute)
+	for {
+		select {
+		case <-ticker.C:
+			cjs, err := s.store.GetCronJobs()
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			rep := 0
+			one := 0
+			for _, cj := range cjs {
+				if _, isOne := s.ExpressionToEpoch(cj.Expression); isOne {
+					one++
+				} else {
+					rep++
+				}
+			}
+			log.Infof("total cron job: %v #repeated job: %v #onetime job: %v", len(cjs), rep, one)
+			js, err := s.store.GetJobs()
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			var b, r int = 0, 0
+			for _, j := range js {
+				if j.IsBackGround {
+					b++
+				}
+				if j.Running {
+					r++
+				}
+			}
+			log.Infof("total job: %v #background: %v #running: %v", len(js), b, r)
+		}
+	}
+
+}
+
 func (s *Server) allocSessionId() int64 {
 	return atomic.AddInt64(&s.startSessionId, 1)
 }
@@ -739,15 +778,15 @@ func (s *Server) allocSessionId() int64 {
 func (s *Server) DeleteCronJob(cj *CronJob) error {
 	sj, err := s.store.DeleteCronJob(cj)
 	if err == lberror.ErrNotFound {
-		log.Errorf("handle `%v` not found\n", cj.Handle)
-		return errors.NewGoError(fmt.Sprintf("handle `%v` not found", cj.Handle))
+		log.Errorf("handle `%v` not found", cj.Handle)
+		return fmt.Errorf("handle `%v` not found", cj.Handle)
 	}
 	if err != nil {
 		log.Errorln(err)
 		return err
 	}
 	s.cronSvc.Remove(cron.EntryID(sj.CronEntryID))
-	log.Debugf("job `%v` successfully cancelled.\n", cj.Handle)
+	log.Debugf("job `%v` successfully cancelled.", cj.Handle)
 	return nil
 }
 

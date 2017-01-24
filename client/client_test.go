@@ -72,7 +72,7 @@ func TestClientDoCron(t *testing.T) {
 }
 
 func TestClientDoAt(t *testing.T) {
-	handle, err := client.DoAt("scheduledJobTest", 1484160580, []byte("test data"))
+	handle, err := client.DoAt("scheduledJobTest", 1784161581, []byte("test data"))
 	if err != nil {
 		t.Fatal(err)
 	}
