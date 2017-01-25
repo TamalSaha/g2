@@ -57,7 +57,6 @@ func (s *Server) loadAllJobs() {
 		log.Error(err)
 		return
 	}
-	log.Debugln("....................loading job.........................")
 	for _, j := range jobs {
 		j.ProcessBy = 0 //no body handle it now
 		j.CreateBy = 0  //clear
@@ -72,7 +71,6 @@ func (s *Server) loadAllCronJobs() {
 		log.Error(err)
 		return
 	}
-	log.Debugln("......................loading cron job.......................")
 	for _, sj := range schedJobs {
 		if epoch, ok := s.ExpressionToEpoch(sj.Expression); ok {
 			log.Debugf("handle: %v func: %v schedule: %v", sj.Handle, sj.JobTemplete.FuncName, time.Unix(epoch, 0).Local())
