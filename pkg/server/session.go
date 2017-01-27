@@ -74,11 +74,11 @@ func (se *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.Rea
 		}
 		args, ok := decodeArgs(tp, buf)
 		if !ok {
-			log.Debugf("pt: %v argc not match details: %v", tp.String(), string(buf))
+			log.Debugf("protocol: %v argc not match details: %s", tp.String(), string(buf))
 			return
 		}
 
-		log.Debugf("sessionId: %v pt: %v len(args): %v details: %v", sessionId, tp.String(), len(args), string(buf))
+		log.Debugf("sessionId: %v protocol: %v len(args): %v details: %s", sessionId, tp.String(), len(args), string(buf))
 
 		switch tp {
 		case PT_CanDo, PT_CanDoTimeout: //todo: CAN_DO_TIMEOUT timeout support
