@@ -163,6 +163,11 @@ func (a *agent) reconnect() error {
 	a.conn = conn
 	a.rw = bufio.NewReadWriter(bufio.NewReader(a.conn),
 		bufio.NewWriter(a.conn))
+
+	// Send What this worker can do again to gearmand.
+	for k, v := range a.worker.funcs {
+		a.worker.addFunc(k, v.timeout)
+	}
 	a.grab()
 	a.worker.reRegisterFuncsForAgent(a)
 
