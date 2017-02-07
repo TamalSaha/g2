@@ -309,13 +309,11 @@ func (s *Server) handleCloseSession(e *event) error {
 		}
 		s.removeWorkerBySessionId(w.SessionId)
 		log.Debugf("worker with sessionId: %v unregistered.", sessionId)
-		//reschedule these jobs, so other workers can handle it
 		for handle, j := range w.runningJobs {
 			if handle != j.Handle {
 				log.Fatal("handle not match %d-%d", handle, j.Handle)
 			}
 			j.Running = false
-			s.doAddJob(j)
 		}
 	}
 	if c, ok := s.client[sessionId]; ok {
