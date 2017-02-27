@@ -4,12 +4,10 @@ package leveldbq
 
 import (
 	"encoding/json"
-	"reflect"
 	"strings"
 
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/pkg/storage"
-	"github.com/appscode/log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
@@ -29,14 +27,6 @@ func New(dir string) (storage.Db, error) {
 }
 
 func (q *LevelDbQ) AddJob(j *Job) error {
-	if j.CronHandle != "" {
-		cj, err := q.GetCronJob(j.CronHandle)
-		if err != nil {
-			return err
-		}
-		cj.Created++
-		q.AddCronJob(cj)
-	}
 	buf, err := json.Marshal(j)
 	if err != nil {
 		return err
@@ -44,19 +34,7 @@ func (q *LevelDbQ) AddJob(j *Job) error {
 	return q.db.Put([]byte(j.Handle), buf, nil)
 }
 
-func (q *LevelDbQ) DeleteJob(j *Job, isSuccess bool) error {
-	if j.CronHandle != "" {
-		cj, err := q.GetCronJob(j.CronHandle)
-		if err != nil {
-			return err
-		}
-		if isSuccess {
-			cj.SuccessfulRun++
-		} else {
-			cj.FailedRun++
-		}
-		q.AddCronJob(cj)
-	}
+func (q *LevelDbQ) DeleteJob(j *Job) error {
 	return q.db.Delete([]byte(j.Handle), nil)
 }
 
@@ -100,22 +78,6 @@ func (q *LevelDbQ) AddCronJob(sj *CronJob) error {
 		return err
 	}
 	return q.db.Put([]byte(sj.Handle), buf, nil)
-}
-
-func (q *LevelDbQ) UpdateCronJob(handle string, updatedValue map[string]interface{}) error {
-	cj, err := q.GetCronJob(handle)
-	if err != nil {
-		return err
-	}
-	for k, v := range updatedValue {
-		field := reflect.ValueOf(cj).Elem().FieldByName(k)
-		if field.IsValid() {
-			field.Set(reflect.ValueOf(v))
-		} else {
-			log.Warning("field not found")
-		}
-	}
-	return q.AddCronJob(cj)
 }
 
 func (q *LevelDbQ) GetCronJob(handle string) (*CronJob, error) {

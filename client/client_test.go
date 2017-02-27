@@ -75,7 +75,7 @@ func TestClientDoCron(t *testing.T) {
 }
 
 func TestClientDoAt(t *testing.T) {
-	handle, err := client.DoAt("scheduledJobTest", time.Now().Add(10*time.Second).Unix(), []byte("test data"))
+	handle, err := client.DoAt("scheduledJobTest", time.Now().Add(20*time.Second).Unix(), []byte("test data"))
 	if err != nil {
 		t.Fatal(err)
 	}

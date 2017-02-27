@@ -72,7 +72,10 @@ func TestScheduledJob(t *testing.T) {
 	scheduledJobTest := func(job worker.Job) ([]byte, error) {
 		fmt.Println(" Test Function executed. function name: ", "scheduledJobTest", "Parameter: ", string(job.Data()))
 		for i := 0; i < 10; i++ {
-			time.Sleep(time.Second * 1)
+			if job.Err() != nil {
+				fmt.Println("error is: ", job.Err())
+			}
+			time.Sleep(time.Second * 3)
 			fmt.Printf("Running %d%%\n", (i+1)*10)
 		}
 		fmt.Println("Job finished")

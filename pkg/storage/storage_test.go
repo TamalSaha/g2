@@ -129,7 +129,7 @@ func testGetJob(t *testing.T, store JobQueue, retJobs []*Job) {
 }
 
 func testDoneJob(t *testing.T, store JobQueue, j *Job) {
-	err := store.DeleteJob(j, false)
+	err := store.DeleteJob(j)
 	if err != nil {
 		t.Errorf("failed to done job, err:%s", err.Error())
 	}
