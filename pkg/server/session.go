@@ -66,6 +66,7 @@ func (se *session) handleConnection(s *Server, conn net.Conn) {
 }
 
 func (se *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.Reader, sessionId int64, inbox chan []byte) {
+
 	for {
 		tp, buf, err := ReadMessage(r)
 		if err != nil {
@@ -81,10 +82,14 @@ func (se *session) handleBinaryConnection(s *Server, conn net.Conn, r *bufio.Rea
 		log.Debugf("incoming<= sessionId: %v protocol: %v len(args): %v details: %s", sessionId, tp.String(), len(args), string(buf))
 
 		switch tp {
-		case PT_CanDo, PT_CanDoTimeout: //todo: CAN_DO_TIMEOUT timeout support
+		case PT_CanDo:
 			se.w = se.getWorker(sessionId, inbox, conn)
 			s.protoEvtCh <- &event{tp: tp, args: &Tuple{
 				t0: se.w, t1: string(args[0])}}
+		case PT_CanDoTimeout:
+			se.w = se.getWorker(sessionId, inbox, conn)
+			s.protoEvtCh <- &event{tp: tp, args: &Tuple{
+				t0: se.w, t1: string(args[0]), t2: args[1]}}
 		case PT_CantDo:
 			s.protoEvtCh <- &event{tp: tp, fromSessionId: sessionId,
 				args: &Tuple{t0: string(args[0])}}

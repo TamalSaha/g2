@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	rt "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/worker"
@@ -70,6 +71,11 @@ func TestScheduledJob(t *testing.T) {
 	// A function for handling jobs
 	scheduledJobTest := func(job worker.Job) ([]byte, error) {
 		fmt.Println(" Test Function executed. function name: ", "scheduledJobTest", "Parameter: ", string(job.Data()))
+		for i := 0; i < 10; i++ {
+			time.Sleep(time.Second * 1)
+			fmt.Printf("Running %d%%\n", (i+1)*10)
+		}
+		fmt.Println("Job finished")
 		return nil, nil
 	}
 	job1 := func(job worker.Job) ([]byte, error) {
@@ -77,7 +83,7 @@ func TestScheduledJob(t *testing.T) {
 		return nil, nil
 	}
 	// Add the function to worker
-	if err := w.AddFunc("scheduledJobTest", scheduledJobTest, 0); err != nil {
+	if err := w.AddFunc("scheduledJobTest", scheduledJobTest, 5); err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -86,6 +92,7 @@ func TestScheduledJob(t *testing.T) {
 		fmt.Println(err)
 		return
 	}
+
 	var wg sync.WaitGroup
 	// A custome handler, for handling other results, eg. ECHO, dtError.
 	w.JobHandler = func(job worker.Job) error {

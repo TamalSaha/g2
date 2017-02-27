@@ -16,6 +16,8 @@ import (
 	"github.com/ngaut/stats"
 	lberror "github.com/syndtr/goleveldb/leveldb/errors"
 	"gopkg.in/robfig/cron.v2"
+	"bytes"
+	"encoding/binary"
 )
 
 type Server struct {
@@ -145,6 +147,10 @@ func (s *Server) handleCanDo(funcName string, w *Worker) {
 	jw := s.getJobWorkPair(funcName)
 	s.addWorker(jw.workers, w)
 	s.worker[w.SessionId] = w
+}
+//TODO Implement timeout functionality
+func (s *Server) handleCanDoTimeout(funcName string, w *Worker, timeout int32) {
+	s.handleCanDo(funcName, w)
 }
 
 func (s *Server) getJobWorkPair(funcName string) *jobworkermap {
@@ -279,20 +285,11 @@ func (s *Server) wakeupWorker(funcName string) bool {
 	return false
 }
 
-func (s *Server) checkAndRemoveJob(tp PT, j *Job) {
-	switch tp {
-	case PT_WorkComplete:
-		s.removeJob(j, true)
-	case PT_WorkException, PT_WorkFail:
-		s.removeJob(j, false)
-	}
-}
-
 func (s *Server) removeJob(j *Job, isSuccess bool) {
 	delete(s.jobs, j.Handle)
 	delete(s.worker[j.ProcessBy].runningJobs, j.Handle)
 	if j.IsBackGround {
-		log.Debugf("done job: %v", j.Handle)
+		log.Debugf("job removed: %v", j.Handle)
 		if s.store != nil {
 			if err := s.store.DeleteJob(j, isSuccess); err != nil {
 				log.Warning(err)
@@ -301,13 +298,45 @@ func (s *Server) removeJob(j *Job, isSuccess bool) {
 	}
 }
 
+func (s *Server) jobDone(j *Job) {
+	s.removeJob(j, true)
+}
+
+func (s *Server) jobFailed(j *Job) {
+	s.removeJob(j, false)
+}
+
+func (s *Server) jobFailedWithException(j *Job, cause string) {
+	log.Warningf("Job failed with cause `%v`", cause)
+	s.removeJob(j, false)
+}
+
 func (s *Server) handleCloseSession(e *event) error {
 	sessionId := e.fromSessionId
+	switch {
+	case s.isClient(e.fromSessionId):
+		s.handleCloseSessionForClient(sessionId)
+	case s.isWorker(e.fromSessionId):
+		s.handleCloseSessionForWorker(sessionId)
+	default:
+		log.Errorln("invalid sessionId")
+	}
+	e.result <- true //notify close finish
+	return nil
+}
+
+func (s *Server) handleCloseSessionForWorker(sessionId int64) {
 	if w, ok := s.worker[sessionId]; ok {
 		if sessionId != w.SessionId {
 			log.Fatalf("sessionId not match %d-%d, bug found", sessionId, w.SessionId)
 		}
+		//TODO Don't  immediately make job fails when worker disconnected.
+		//Wait for timeout
+		for _, j := range w.runningJobs {
+			s.jobFailed(j)
+		}
 		s.removeWorkerBySessionId(w.SessionId)
+
 		log.Debugf("worker with sessionId: %v unregistered.", sessionId)
 		for handle, j := range w.runningJobs {
 			if handle != j.Handle {
@@ -316,13 +345,13 @@ func (s *Server) handleCloseSession(e *event) error {
 			j.Running = false
 		}
 	}
+}
+
+func (s *Server) handleCloseSessionForClient(sessionId int64) {
 	if c, ok := s.client[sessionId]; ok {
 		log.Debug("removeClient with sessionId ", sessionId)
 		delete(s.client, c.SessionId)
 	}
-	e.result <- true //notify close finish
-
-	return nil
 }
 
 func (s *Server) handleGetWorker(e *event) (err error) {
@@ -567,12 +596,17 @@ func (s *Server) handleWorkReport(e *event) {
 		log.Fatal("job handle not match")
 	}
 
-	if PT_WorkStatus == e.tp {
+	switch e.tp {
+	case PT_WorkStatus:
 		j.Percent, _ = strconv.Atoi(string(slice[1]))
 		j.Denominator, _ = strconv.Atoi(string(slice[2]))
+	case PT_WorkException:
+		s.jobFailedWithException(j, string(slice[1]))
+	case PT_WorkFail:
+		s.jobFailed(j)
+	case PT_WorkComplete:
+		s.jobDone(j)
 	}
-
-	s.checkAndRemoveJob(e.tp, j)
 
 	//the client is not updated with status or notified when the job has completed (it is detached)
 	if j.IsBackGround {
@@ -615,6 +649,16 @@ func (s *Server) handleProtoEvt(e *event) {
 		funcName := args.t1.(string)
 		s.handleCanDo(funcName, w)
 		log.Debugf("worker with sessionId: %v add function `%v`", w.SessionId, funcName)
+	case PT_CanDoTimeout: //todo: fix timeout support, now just as CAN_DO
+		w := args.t0.(*Worker)
+		funcName := args.t1.(string)
+		var timeout int32
+		err := binary.Read(bytes.NewReader(args.t2.([]byte)), binary.BigEndian, &timeout)
+		if err != nil {
+			log.Fatal("error when parsing timeout")
+		}
+		s.handleCanDo(funcName, w)
+		log.Debugf("worker with sessionId: %v add function `%v` with timeout %v sec", w.SessionId, funcName, timeout)
 	case PT_CantDo:
 		sessionId := e.fromSessionId
 		funcName := args.t0.(string)
@@ -626,11 +670,6 @@ func (s *Server) handleProtoEvt(e *event) {
 	case PT_SetClientId:
 		w := args.t0.(*Worker)
 		w.workerId = args.t1.(string)
-	case PT_CanDoTimeout: //todo: fix timeout support, now just as CAN_DO
-		w := args.t0.(*Worker)
-		funcName := args.t1.(string)
-		s.handleCanDo(funcName, w)
-		log.Debugf("worker with sessionId: %v add function `%v`", w.SessionId, funcName)
 	case PT_GrabJobUniq:
 		sessionId := e.fromSessionId
 		w, ok := s.worker[sessionId]
@@ -797,4 +836,22 @@ func (s *Server) ExpressionToEpoch(scdTime string) (int64, bool) {
 		return value, true
 	}
 	return 0, false
+}
+
+func (s *Server) isWorker(sessionId int64) bool {
+	for k := range s.worker {
+		if k == sessionId {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) isClient(sessionId int64) bool {
+	for k := range s.client {
+		if k == sessionId {
+			return true
+		}
+	}
+	return false
 }

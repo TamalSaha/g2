@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -48,7 +50,7 @@ func TestClientEcho(t *testing.T) {
 }
 
 func TestClientDoBg(t *testing.T) {
-	handle, err := client.DoBg("ToUpper", []byte("abcdef"), rt.JobNormal)
+	handle, err := client.DoBg("scheduledJobTest", []byte("abcdef"), rt.JobNormal)
 	if err != nil {
 		t.Error(err)
 		return
@@ -85,17 +87,15 @@ func TestClientDoAt(t *testing.T) {
 }
 
 func TestClientDo(t *testing.T) {
+	var wg sync.WaitGroup = sync.WaitGroup{}
+	wg.Add(1)
 	jobHandler := func(job *Response) {
-		str := string(job.Data)
-		if str == "ABCDEF" {
-			t.Log(str)
-		} else {
-			t.Errorf("Invalid data: %s", job.Data)
-		}
+		fmt.Printf("%+v", job)
+		wg.Done()
 		return
 	}
-	handle, err := client.Do("ToUpper", []byte("abcdef"),
-		rt.JobLow, jobHandler)
+	handle, err := client.Do("scheduledJobTest", []byte("abcdef"),
+		rt.JobHigh, jobHandler)
 	if err != nil {
 		t.Error(err)
 		return
@@ -105,6 +105,8 @@ func TestClientDo(t *testing.T) {
 	} else {
 		t.Log(handle)
 	}
+	wg.Wait()
+
 }
 
 func TestClientStatus(t *testing.T) {
