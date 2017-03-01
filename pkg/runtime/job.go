@@ -22,7 +22,7 @@ type Job struct {
 	Denominator  int       `json:"denominator,omitempty"`
 	CreateAt     time.Time `json:"created_at,omitempty"`
 	ProcessAt    time.Time `json:"process_at,omitempty"`
-	TimeoutSec   int       `json:"timeout_sec,omitempty"`
+	TimeoutSec   int32     `json:"timeout_sec,omitempty"`
 	CreateBy     int64     `json:"created_by,omitempty"` //client sessionId
 	ProcessBy    int64     `json:"process_by,omitempty"` //worker sessionId
 	FuncName     string    `json:"function_name,omitempty"`

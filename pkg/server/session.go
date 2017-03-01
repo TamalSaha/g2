@@ -25,7 +25,7 @@ func (s *session) getWorker(sessionId int64, inbox chan []byte, conn net.Conn) *
 	s.w = &Worker{
 		Conn: conn, status: wsSleep, Session: Session{SessionId: sessionId,
 			in: inbox, ConnectAt: time.Now()}, runningJobs: make(map[string]*Job),
-		canDo: make(map[string]bool)}
+		canDo: make(map[string]int32)}
 
 	return s.w
 }
@@ -248,8 +248,8 @@ func (se *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Read
 			for _, v := range s.worker {
 				resp += fmt.Sprintf("%v %v %v : ", "-", v.Conn.RemoteAddr().String(), v.workerId)
 				isFirst := true
-				for fnName, isEnable := range v.canDo {
-					if isEnable {
+				for fnName, timeout := range v.canDo {
+					if timeout != -1 {
 						if !isFirst {
 							resp += " "
 						}

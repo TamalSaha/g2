@@ -72,10 +72,8 @@ func TestScheduledJob(t *testing.T) {
 	scheduledJobTest := func(job worker.Job) ([]byte, error) {
 		fmt.Println(" Test Function executed. function name: ", "scheduledJobTest", "Parameter: ", string(job.Data()))
 		for i := 0; i < 10; i++ {
-			if job.Err() != nil {
-				fmt.Println("error is: ", job.Err())
-			}
 			time.Sleep(time.Second * 3)
+
 			fmt.Printf("Running %d%%\n", (i+1)*10)
 		}
 		fmt.Println("Job finished")
@@ -86,7 +84,7 @@ func TestScheduledJob(t *testing.T) {
 		return nil, nil
 	}
 	// Add the function to worker
-	if err := w.AddFunc("scheduledJobTest", scheduledJobTest, 5); err != nil {
+	if err := w.AddFunc("scheduledJobTest", scheduledJobTest, 40); err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -119,6 +117,79 @@ func TestScheduledJob(t *testing.T) {
 	}
 	// Running main loop
 	go w.Work()
+	wg.Add(1)
+	wg.Wait()
+}
+
+func TestScheduledJobWithReconnect(t *testing.T) {
+	w := worker.New(worker.Unlimited)
+	defer w.Close()
+	// Add a gearman job server
+	if err := w.AddServer(rt.Network, "127.0.0.1:4730"); err != nil {
+		fmt.Println(err)
+		return
+	}
+	// A function for handling jobs
+	scheduledJobTest := func(job worker.Job) ([]byte, error) {
+		fmt.Println(" Test Function executed. function name: ", "scheduledJobTest", "Parameter: ", string(job.Data()))
+		for i := 0; i < 10; i++ {
+			time.Sleep(time.Second * 3)
+			fmt.Printf("Running %d%%\n", (i+1)*10)
+		}
+		fmt.Println("Job finished")
+		return nil, nil
+	}
+	job1 := func(job worker.Job) ([]byte, error) {
+		fmt.Println(" Test Function executed. function name: ", "scheduledJobTest", "Parameter: ", string(job.Data()))
+		return nil, nil
+	}
+	// Add the function to worker
+	if err := w.AddFunc("scheduledJobTest", scheduledJobTest, 50); err != nil {
+		fmt.Println(err)
+		return
+	}
+	// Add the function to worker
+	if err := w.AddFunc("job1", job1, 0); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	var wg sync.WaitGroup
+	// A custome handler, for handling other results, eg. ECHO, dtError.
+	w.JobHandler = func(job worker.Job) error {
+		if job.Err() == nil {
+			fmt.Println(string(job.Data()))
+		} else {
+			fmt.Println(job.Err())
+		}
+		wg.Done()
+		return nil
+	}
+	w.ErrorHandler = func(e error) {
+		wdc, wdcok := e.(*worker.WorkerDisconnectError)
+		if wdcok {
+			fmt.Println("Reconnecting!")
+			reconnected := false
+			for tries := 20; !reconnected && tries > 0; tries-- {
+				rcerr := wdc.Reconnect()
+				if rcerr != nil {
+					fmt.Println("err: ", rcerr)
+					time.Sleep(5 * time.Second)
+				} else {
+					reconnected = true
+				}
+			}
+
+			go w.Work()
+
+		} else {
+			//panic("Some other kind of error " + e.Error())
+		}
+
+	}
+	go w.Work()
+	time.Sleep(time.Second * 10)
+	w.RemoveFunc("job1")
 	wg.Add(1)
 	wg.Wait()
 }

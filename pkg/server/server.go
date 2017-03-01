@@ -107,6 +107,7 @@ func (s *Server) Start(addr string) {
 
 	go registerWebHandler(s)
 	go s.WatcherLoop()
+	go s.JobTimeoutMonitorLoop()
 	if s.cronSvc != nil {
 		s.cronSvc.Start()
 	}
@@ -155,15 +156,14 @@ func (s *Server) removeWorkerBySessionId(sessionId int64) {
 }
 
 func (s *Server) handleCanDo(funcName string, w *Worker) {
-	w.canDo[funcName] = true
+	s.handleCanDoTimeout(funcName, w, DefaultTimeout)
+}
+
+func (s *Server) handleCanDoTimeout(funcName string, w *Worker, timeout int32) {
+	w.canDo[funcName] = timeout
 	jw := s.getJobWorkPair(funcName)
 	s.addWorker(jw.workers, w)
 	s.worker[w.SessionId] = w
-}
-
-//TODO Implement timeout functionality
-func (s *Server) handleCanDoTimeout(funcName string, w *Worker, timeout int32) {
-	s.handleCanDo(funcName, w)
 }
 
 func (s *Server) getJobWorkPair(funcName string) *jobworkermap {
@@ -190,12 +190,7 @@ func (s *Server) doAddJob(j *Job) {
 		cron.Created++
 		s.addCronJob(cron)
 	}
-	if s.store == nil {
-		return
-	}
-	if err := s.store.AddJob(j); err != nil {
-		log.Warning(err)
-	}
+	s.saveJobInDB(j)
 }
 
 func (s *Server) doAddCronJob(sj *CronJob) {
@@ -270,23 +265,20 @@ func (s *Server) doAddEpochJob(cj *CronJob) {
 }
 
 func (s *Server) popJob(sessionId int64) (j *Job) {
-	for funcName, cando := range s.worker[sessionId].canDo {
-		if !cando {
-			continue
-		}
-
+	for funcName := range s.worker[sessionId].canDo {
 		if wj, ok := s.funcWorker[funcName]; ok {
-			if wj.jobs.Len() == 0 {
-				continue
+			for it := wj.jobs.Front(); it != nil; it = it.Next() {
+				jtmp := it.Value.(*Job)
+				//Don't return running job. This case arise when server restarted but some job still executing
+				if jtmp.Running {
+					continue
+				}
+				j = jtmp
+				wj.jobs.Remove(it)
+				return
 			}
-
-			job := wj.jobs.Front()
-			wj.jobs.Remove(job)
-			j = job.Value.(*Job)
-			return
 		}
 	}
-
 	return
 }
 
@@ -295,7 +287,18 @@ func (s *Server) wakeupWorker(funcName string) bool {
 	if !ok || wj.jobs.Len() == 0 || wj.workers.Len() == 0 {
 		return false
 	}
-
+	//Don't wakeup for running job
+	var allRunning = true
+	for it := wj.jobs.Front(); it != nil; it = it.Next() {
+		j := it.Value.(*Job)
+		if !j.Running {
+			allRunning = false
+			break
+		}
+	}
+	if allRunning {
+		return false
+	}
 	for it := wj.workers.Front(); it != nil; it = it.Next() {
 		w := it.Value.(*Worker)
 		if w.status != wsSleep {
@@ -313,7 +316,9 @@ func (s *Server) wakeupWorker(funcName string) bool {
 
 func (s *Server) removeJob(j *Job, isSuccess bool) {
 	delete(s.jobs, j.Handle)
-	delete(s.worker[j.ProcessBy].runningJobs, j.Handle)
+	if pw, found := s.worker[j.ProcessBy]; found {
+		delete(pw.runningJobs, j.Handle)
+	}
 	log.Debugf("job removed: %v", j.Handle)
 	if j.IsBackGround {
 		if cron, ok := s.getCronJobFromMap(j.CronHandle); ok {
@@ -365,20 +370,8 @@ func (s *Server) handleCloseSessionForWorker(sessionId int64) {
 		if sessionId != w.SessionId {
 			log.Fatalf("sessionId not match %d-%d, bug found", sessionId, w.SessionId)
 		}
-		//TODO Don't  immediately make job fails when worker disconnected.
-		//Wait for timeout
-		for _, j := range w.runningJobs {
-			s.jobFailed(j)
-		}
 		s.removeWorkerBySessionId(w.SessionId)
-
 		log.Debugf("worker with sessionId: %v unregistered.", sessionId)
-		for handle, j := range w.runningJobs {
-			if handle != j.Handle {
-				log.Fatal("handle not match %d-%d", handle, j.Handle)
-			}
-			j.Running = false
-		}
 	}
 }
 
@@ -600,18 +593,12 @@ func (s *Server) handleWorkReport(e *event) {
 	args := e.args
 	slice := args.t0.([][]byte)
 	jobhandle := bytes2str(slice[0])
-	sessionId := e.fromSessionId
-	j, ok := s.worker[sessionId].runningJobs[jobhandle]
 
-	log.Debugf("%v job handle %v", e.tp, jobhandle)
+	j, ok := s.getRunningJobByHandle(jobhandle)
 	if !ok {
 		log.Warningf("job information lost, %v job handle %v, %+v",
 			e.tp, jobhandle, s.jobs)
 		return
-	}
-
-	if j.Handle != jobhandle {
-		log.Fatal("job handle not match")
 	}
 
 	switch e.tp {
@@ -675,7 +662,7 @@ func (s *Server) handleProtoEvt(e *event) {
 		if err != nil {
 			log.Fatal("error when parsing timeout")
 		}
-		s.handleCanDo(funcName, w)
+		s.handleCanDoTimeout(funcName, w, timeout)
 		log.Debugf("worker with sessionId: %v add function `%v` with timeout %v sec", w.SessionId, funcName, timeout)
 	case PT_CantDo:
 		sessionId := e.fromSessionId
@@ -695,21 +682,22 @@ func (s *Server) handleProtoEvt(e *event) {
 			log.Fatalf("unregister worker, sessionId %d", sessionId)
 			break
 		}
-
 		w.status = wsRunning
-
 		j := s.popJob(sessionId)
 		if j != nil {
 			j.ProcessAt = time.Now()
 			j.ProcessBy = sessionId
+			j.TimeoutSec = w.canDo[j.FuncName]
 			//track this job
 			j.Running = true
 			w.runningJobs[j.Handle] = j
+			s.saveJobInDB(j)
+
 		} else { //no job
 			w.status = wsPrepareForSleep
 		}
-		//send job back
 		e.result <- j
+
 	case PT_PreSleep:
 		sessionId := e.fromSessionId
 		w, ok := s.worker[sessionId]
@@ -719,7 +707,6 @@ func (s *Server) handleProtoEvt(e *event) {
 			s.worker[w.SessionId] = w
 			break
 		}
-
 		w.status = wsSleep
 		log.Debugf("worker with sessionId %d sleep", sessionId)
 		//check if there are any jobs for this worker
@@ -820,6 +807,25 @@ func (s *Server) WatcherLoop() {
 	}
 }
 
+func (s *Server) JobTimeoutMonitorLoop() {
+	ticker := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			for _, job := range s.jobs {
+				if !job.Running {
+					continue
+				}
+				if time.Now().Sub(job.ProcessAt) > time.Duration(job.TimeoutSec)*time.Second {
+					log.Infof("job %v failed, cause timeout expired", job.Handle)
+					s.jobFailed(job)
+				}
+
+			}
+		}
+	}
+}
+
 func (s *Server) allocSessionId() int64 {
 	return atomic.AddInt64(&s.startSessionId, 1)
 }
@@ -855,6 +861,15 @@ func (s *Server) isWorker(sessionId int64) bool {
 	return false
 }
 
+func (s *Server) getRunningJobByHandle(handle string) (*Job, bool) {
+	for _, j := range s.jobs {
+		if j.Handle == handle && j.Running {
+			return j, true
+		}
+	}
+	return nil, false
+}
+
 func (s *Server) isClient(sessionId int64) bool {
 	for k := range s.client {
 		if k == sessionId {
@@ -874,6 +889,15 @@ func (s *Server) addCronJob(cj *CronJob) {
 		if err != nil {
 			log.Error(err)
 		}
+	}
+}
+
+func (s *Server) saveJobInDB(j *Job) {
+	if s.store == nil {
+		return
+	}
+	if err := s.store.AddJob(j); err != nil {
+		log.Warning(err)
 	}
 }
 
