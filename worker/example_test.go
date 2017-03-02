@@ -71,9 +71,10 @@ func TestScheduledJob(t *testing.T) {
 	// A function for handling jobs
 	scheduledJobTest := func(job worker.Job) ([]byte, error) {
 		fmt.Println(" Test Function executed. function name: ", "scheduledJobTest", "Parameter: ", string(job.Data()))
+
 		for i := 0; i < 10; i++ {
 			time.Sleep(time.Second * 3)
-
+			job.UpdateStatus((i+1)*10, 100)
 			fmt.Printf("Running %d%%\n", (i+1)*10)
 		}
 		fmt.Println("Job finished")
@@ -144,7 +145,7 @@ func TestScheduledJobWithReconnect(t *testing.T) {
 		return nil, nil
 	}
 	// Add the function to worker
-	if err := w.AddFunc("scheduledJobTest", scheduledJobTest, 50); err != nil {
+	if err := w.AddFunc("scheduledJobTest", scheduledJobTest, 0); err != nil {
 		fmt.Println(err)
 		return
 	}

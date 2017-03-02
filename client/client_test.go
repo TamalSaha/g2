@@ -90,9 +90,22 @@ func TestClientDo(t *testing.T) {
 	var wg sync.WaitGroup = sync.WaitGroup{}
 	wg.Add(1)
 	jobHandler := func(job *Response) {
-		fmt.Printf("%+v", job)
-		wg.Done()
-		return
+		switch job.DataType {
+		case rt.PT_WorkComplete:
+			t.Log("Work complete, handle ", job.Handle)
+			wg.Done()
+		case rt.PT_WorkException, rt.PT_WorkFail:
+			t.Log("Work fail, handle ", job.Handle, " cause: ", string(job.Data))
+			wg.Done()
+		case rt.PT_WorkData:
+			t.Logf("Work data: %+v", string(job.Data))
+		case rt.PT_WorkStatus:
+			status, err:= job.Status()
+			if err != nil {
+				t.Error(err)
+			}
+			fmt.Println("Work status, num: %v, denom: %v", status.Numerator, status.Denominator)
+		}
 	}
 	handle, err := client.Do("scheduledJobTest", []byte("abcdef"),
 		rt.JobHigh, jobHandler)

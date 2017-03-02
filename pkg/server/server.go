@@ -819,6 +819,17 @@ func (s *Server) JobTimeoutMonitorLoop() {
 				if time.Now().Sub(job.ProcessAt) > time.Duration(job.TimeoutSec)*time.Second {
 					log.Infof("job %v failed, cause timeout expired", job.Handle)
 					s.jobFailed(job)
+
+					if job.IsBackGround {
+						return
+					}
+					c, ok := s.client[job.CreateBy]
+					if !ok {
+						log.Debug(job.Handle, "sessionId", job.CreateBy, "missing")
+						return
+					}
+					sendTimeoutException(c.in, job.Handle, "timeout expired")
+					s.forwardReport++
 				}
 
 			}
