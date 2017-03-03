@@ -84,7 +84,7 @@ func allocJobId() string {
 }
 
 func allocSchedJobId() string {
-	return runtime.SchedJobPrefix + <-idCh
+	return runtime.CronJobPrefix + <-idCh
 }
 
 func IsValidJobHandle(handle string) bool {
@@ -92,7 +92,7 @@ func IsValidJobHandle(handle string) bool {
 }
 
 func IsValidCronJobHandle(handle string) bool {
-	return strings.HasPrefix(handle, runtime.SchedJobPrefix)
+	return strings.HasPrefix(handle, runtime.CronJobPrefix)
 }
 
 type event struct {

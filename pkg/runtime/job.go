@@ -9,7 +9,7 @@ const (
 	PRIORITY_HIGH = 1
 
 	JobPrefix       = "H:"
-	SchedJobPrefix  = "S:"
+	CronJobPrefix   = "S:"
 	EpochTimePrefix = "UTC-"
 )
 
@@ -56,5 +56,5 @@ func (c *CronJob) Key() string {
 }
 
 func (c *CronJob) Prefix() string {
-	return SchedJobPrefix
+	return CronJobPrefix
 }
