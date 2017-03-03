@@ -248,14 +248,12 @@ func (se *session) handleAdminConnection(s *Server, conn net.Conn, r *bufio.Read
 			for _, v := range s.worker {
 				resp += fmt.Sprintf("%v %v %v : ", "-", v.Conn.RemoteAddr().String(), v.workerId)
 				isFirst := true
-				for fnName, timeout := range v.canDo {
-					if timeout != -1 {
-						if !isFirst {
-							resp += " "
-						}
-						isFirst = false
-						resp += fmt.Sprintf("%v", fnName)
+				for fnName := range v.canDo {
+					if !isFirst {
+						resp += " "
 					}
+					isFirst = false
+					resp += fmt.Sprintf("%v", fnName)
 				}
 				resp += "\n"
 			}

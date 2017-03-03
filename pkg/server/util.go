@@ -169,7 +169,7 @@ func sendTextError(out chan []byte, errmsg string) {
 	out <- []byte(fmt.Sprintf("Error: %s\n", errmsg))
 }
 
-func sendTimeoutException(out chan []byte,  handle string, exception string) {
+func sendTimeoutException(out chan []byte, handle string, exception string) {
 	data := [][]byte{[]byte(handle), []byte(exception)}
 	out <- constructReply(runtime.PT_WorkException, data)
 }

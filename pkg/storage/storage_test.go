@@ -108,7 +108,7 @@ func BenchmarkBasicOpts(b *testing.B) {
 	wg.Wait()
 }
 
-func testAddjob(t *testing.T, store JobQueue, j *Job) {
+func testAdd(t *testing.T, store JobQueue, j *Job) {
 	if err := store.AddJob(j); err != nil {
 		t.Errorf("failed to addjob, err:%s", err.Error())
 	}

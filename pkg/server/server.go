@@ -62,12 +62,17 @@ func (s *Server) loadAllJobs() {
 	if s.store == nil {
 		return
 	}
-	jobs, err := s.store.GetJobs()
+	jobs, err := s.store.GetAll(&Job{})
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	for _, j := range jobs {
+	for _, jb := range jobs {
+		j, ok := jb.(*Job)
+		if !ok {
+			log.Errorln("invalid job")
+			return
+		}
 		j.ProcessBy = 0 //no body handle it now
 		j.CreateBy = 0  //clear
 		log.Debugf("handle: %v\tfunc: %v\tis_background: %v", j.Handle, j.FuncName, j.IsBackGround)
@@ -80,12 +85,17 @@ func (s *Server) loadAllCronJobs() {
 	if s.store == nil {
 		return
 	}
-	schedJobs, err := s.store.GetCronJobs()
+	schedJobs, err := s.store.GetAll(&CronJob{})
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	for _, sj := range schedJobs {
+	for _, sji := range schedJobs {
+		sj, ok := sji.(*CronJob)
+		if !ok {
+			log.Errorln("invalid cronjob")
+			return
+		}
 		if epoch, ok := s.ExpressionToEpoch(sj.Expression); ok {
 			log.Debugf("handle: %v func: %v schedule: %v", sj.Handle, sj.JobTemplete.FuncName, time.Unix(epoch, 0).Local())
 			s.doAddEpochJob(sj)
@@ -333,7 +343,7 @@ func (s *Server) removeJob(j *Job, isSuccess bool) {
 	if s.store == nil {
 		return
 	}
-	if err := s.store.DeleteJob(j); err != nil {
+	if err := s.store.Delete(j); err != nil {
 		log.Warning(err)
 	}
 }
@@ -474,6 +484,7 @@ func (s *Server) handleGetCronJob(e *event) (err error) {
 		}
 		return nil
 	}
+
 	if v, ok := s.getCronJobFromMap(e.handle); ok {
 		data, err := json.Marshal(v)
 		if err != nil {
@@ -896,7 +907,7 @@ func (s *Server) addCronJob(cj *CronJob) {
 	s.mu.Unlock()
 
 	if s.store != nil {
-		err := s.store.AddCronJob(cj)
+		err := s.store.Add(cj)
 		if err != nil {
 			log.Error(err)
 		}
@@ -907,7 +918,7 @@ func (s *Server) saveJobInDB(j *Job) {
 	if s.store == nil {
 		return
 	}
-	if err := s.store.AddJob(j); err != nil {
+	if err := s.store.Add(j); err != nil {
 		log.Warning(err)
 	}
 }
@@ -918,7 +929,7 @@ func (s *Server) removeCronJob(cj *CronJob) error {
 	s.mu.Unlock()
 
 	if s.store != nil {
-		_, err := s.store.DeleteCronJob(cj)
+		err := s.store.Delete(cj)
 		if err == lberror.ErrNotFound {
 			log.Errorf("handle `%v` not found", cj.Handle)
 			return fmt.Errorf("handle `%v` not found", cj.Handle)

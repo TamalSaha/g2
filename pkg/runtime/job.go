@@ -42,3 +42,19 @@ type CronJob struct {
 	SuccessfulRun int       `json:"successful_run,omitempty"`
 	FailedRun     int       `json:"failed_run,omitempty"`
 }
+
+func (c *Job) Key() string {
+	return c.Handle
+}
+
+func (c *Job) Prefix() string {
+	return JobPrefix
+}
+
+func (c *CronJob) Key() string {
+	return c.Handle
+}
+
+func (c *CronJob) Prefix() string {
+	return SchedJobPrefix
+}

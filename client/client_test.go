@@ -63,7 +63,7 @@ func TestClientDoBg(t *testing.T) {
 }
 
 func TestClientDoCron(t *testing.T) {
-	handle, err := client.DoCron("scheduledJobTest", "* * * * *", []byte("test data"))
+	handle, err := client.DoCron("scheduledJobTest", "* * * * 5", []byte("test data"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestClientDo(t *testing.T) {
 		case rt.PT_WorkData:
 			t.Logf("Work data: %+v", string(job.Data))
 		case rt.PT_WorkStatus:
-			status, err:= job.Status()
+			status, err := job.Status()
 			if err != nil {
 				t.Error(err)
 			}
