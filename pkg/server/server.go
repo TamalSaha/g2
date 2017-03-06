@@ -71,7 +71,7 @@ func (s *Server) loadAllJobs() {
 		j, ok := jb.(*Job)
 		if !ok {
 			log.Errorln("invalid job")
-			return
+			continue
 		}
 		j.ProcessBy = 0 //no body handle it now
 		j.CreateBy = 0  //clear
@@ -94,7 +94,7 @@ func (s *Server) loadAllCronJobs() {
 		sj, ok := sji.(*CronJob)
 		if !ok {
 			log.Errorln("invalid cronjob")
-			return
+			continue
 		}
 		if epoch, ok := s.ExpressionToEpoch(sj.Expression); ok {
 			log.Debugf("handle: %v func: %v schedule: %v", sj.Handle, sj.JobTemplete.FuncName, time.Unix(epoch, 0).Local())
@@ -117,7 +117,7 @@ func (s *Server) Start(addr string) {
 
 	go registerWebHandler(s)
 	go s.WatcherLoop()
-	go s.JobTimeoutMonitorLoop()
+	go s.WatchJobTimeout()
 	if s.cronSvc != nil {
 		s.cronSvc.Start()
 	}
@@ -818,32 +818,28 @@ func (s *Server) WatcherLoop() {
 	}
 }
 
-func (s *Server) JobTimeoutMonitorLoop() {
-	ticker := time.NewTicker(time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			for _, job := range s.jobs {
-				if !job.Running {
+func (s *Server) WatchJobTimeout() {
+	for range time.NewTicker(time.Second).C {
+		for _, job := range s.jobs {
+			if !job.Running {
+				continue
+			}
+			if time.Now().Sub(job.ProcessAt) > time.Duration(job.TimeoutSec)*time.Second {
+				log.Infof("job %v failed, cause timeout expired", job.Handle)
+				s.jobFailed(job)
+
+				if job.IsBackGround {
 					continue
 				}
-				if time.Now().Sub(job.ProcessAt) > time.Duration(job.TimeoutSec)*time.Second {
-					log.Infof("job %v failed, cause timeout expired", job.Handle)
-					s.jobFailed(job)
-
-					if job.IsBackGround {
-						return
-					}
-					c, ok := s.client[job.CreateBy]
-					if !ok {
-						log.Debug(job.Handle, "sessionId", job.CreateBy, "missing")
-						return
-					}
-					sendTimeoutException(c.in, job.Handle, "timeout expired")
-					s.forwardReport++
+				c, ok := s.client[job.CreateBy]
+				if !ok {
+					log.Debug(job.Handle, "sessionId", job.CreateBy, "missing")
+					continue
 				}
-
+				sendTimeoutException(c.in, job.Handle, "timeout expired")
+				s.forwardReport++
 			}
+
 		}
 	}
 }
