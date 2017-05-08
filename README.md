@@ -1,5 +1,3 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/appscode/g2)](https://goreportcard.com/report/github.com/appscode/g2)
-
 [Website](https://appscode.com) • [Slack](https://slack.appscode.com) • [Forum](https://discuss.appscode.com) • [Twitter](https://twitter.com/AppsCodeHQ)
 
 G2
@@ -72,44 +70,97 @@ how to change monitor address ?
 ## Worker
 
 ```go
-// Limit number of concurrent jobs execution.
-// Use worker.Unlimited (0) if you want no limitation.
-w := worker.New(worker.OneByOne)
-w.ErrHandler = func(e error) {
-	log.Println(e)
-}
-w.AddServer("127.0.0.1:4730")
-// Use worker.Unlimited (0) if you want no timeout
-w.AddFunc("ToUpper", ToUpper, worker.Unlimited)
-// This will give a timeout of 5 seconds
-w.AddFunc("ToUpperTimeOut5", ToUpper, 5)
+import (
+	"log"
+	"strings"
+	"os"
+	"time"
+	"github.com/appscode/g2/worker"
+	"github.com/mikespook/golib/signal"
+)
 
-if err := w.Ready(); err != nil {
-	log.Fatal(err)
-	return
+func ToUpper(job worker.Job) ([]byte, error) {
+	log.Printf("ToUpper: Data=[%s]\n", job.Data())
+	data := []byte(strings.ToUpper(string(job.Data())))
+	time.Sleep(10 * time.Second)
+	return data, nil
 }
-go w.Work()
+
+func main(){
+
+	log.Println("Worker starting...")
+	defer log.Println("Worker shutdown")
+
+	w := worker.New(worker.Unlimited)
+	defer w.Close()
+
+	//error handling
+	w.ErrorHandler = func(e error) {
+		log.Println(e)
+	}
+
+	w.AddServer("tcp4","127.0.0.1:4730")
+
+	// Use worker.Unlimited if you want no timeout
+	w.AddFunc("ToUpper", ToUpper, worker.Unlimited)
+	// This will give a timeout of 5 seconds
+	w.AddFunc("ToUpperTimeOut5", ToUpper, 5)
+
+	if err := w.Ready(); err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	go w.Work()
+
+	//Ctrl-C to exit
+	signal.Bind(os.Interrupt, func() uint { return signal.BreakExit })
+	signal.Wait()
+}
 ```
 
 ## Client
 
 ```go
-// ...
-c, err := client.New("tcp4", "127.0.0.1:4730")
-// ... error handling
-defer c.Close()
-c.ErrorHandler = func(e error) {
-	log.Println(e)
+import (
+	"log"
+	"os"
+	"github.com/appscode/g2/client"
+	"github.com/appscode/g2/pkg/runtime"
+	"github.com/mikespook/golib/signal"
+)
+
+func main(){
+
+	c, err := client.New("tcp4", "127.0.0.1:4730")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer c.Close()
+
+	//error handling
+	c.ErrorHandler = func(e error) {
+		log.Println(e)
+	}
+
+	echo := []byte("Hello world")
+	echoMsg, err := c.Echo(echo)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.Println("Echo:", string(echoMsg))
+
+	jobHandler := func(resp *client.Response) {
+		log.Printf("Response: %s", resp.Data)
+	}
+
+	c.Do("ToUpper", echo, runtime.JobNormal, jobHandler)
+	c.Do("ToUpperTimeOut5", echo, runtime.JobNormal, jobHandler)
+
+	//Ctrl-C to exit
+	signal.Bind(os.Interrupt, func() uint { return signal.BreakExit })
+	signal.Wait()
 }
-echo := []byte("Hello\x00 world")
-echomsg, err := c.Echo(echo)
-// ... error handling
-log.Println(string(echomsg))
-jobHandler := func(resp *client.Response) {
-	log.Printf("%s", resp.Data)
-}
-handle, err := c.Do("ToUpper", echo, client.JobNormal, jobHandler)
-// ...
 ```
 
 ## Gearman Admin Client
