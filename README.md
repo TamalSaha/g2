@@ -15,7 +15,7 @@ The worker package will help developers in developing Gearman worker service eas
 
 	"github.com/appscode/g2/worker"
 	    
-The gearadmin package is used to implement a Gearman admin client.
+The gearadmin package implements a client for the [gearman admin protocol](http://gearman.org/protocol/).
 
     "github.com/appscode/g2/gearadmin"
 
