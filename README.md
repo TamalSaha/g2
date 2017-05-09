@@ -1,19 +1,23 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/appscode/g2)](https://goreportcard.com/report/github.com/appscode/g2)
+
 [Website](https://appscode.com) • [Slack](https://slack.appscode.com) • [Forum](https://discuss.appscode.com) • [Twitter](https://twitter.com/AppsCodeHQ)
 
 G2
 ==========
 
-G2 is a server, worker and client implementation of [Gearman](http://gearman.org/) in [Go Programming Language](http://golang.org). It contains two sub-packages:
+G2 is a server, worker and client implementation of [Gearman](http://gearman.org/) in [Go Programming Language](http://golang.org).
 
-The client package is used for sending jobs to the Gearman job server,
-and getting responses from the server.
+The client package is used for sending jobs to the Gearman job server and getting responses from the server.
 
 	"github.com/appscode/g2/client"
 
-The worker package will help developers in developing Gearman worker
-service easily.
+The worker package will help developers in developing Gearman worker service easily.
 
 	"github.com/appscode/g2/worker"
+	    
+The gearadmin package is used to implement a Gearman admin client.
+
+    "github.com/appscode/g2/gearadmin"
 
 [![GoDoc](https://godoc.org/github.com/appscode/g2?status.png)](https://godoc.org/github.com/appscode/g2)
 
