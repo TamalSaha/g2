@@ -74,121 +74,55 @@ how to change monitor address ?
 ## Worker
 
 ```go
-import (
-	"log"
-	"strings"
-	"os"
-	"time"
-	"github.com/appscode/g2/worker"
-	"github.com/mikespook/golib/signal"
-)
-
-func ToUpper(job worker.Job) ([]byte, error) {
-	log.Printf("ToUpper: Data=[%s]\n", job.Data())
-	data := []byte(strings.ToUpper(string(job.Data())))
-	time.Sleep(10 * time.Second)
-	return data, nil
+// Limit number of concurrent jobs execution.
+// Use worker.Unlimited (0) if you want no limitation.
+w := worker.New(worker.OneByOne)
+w.ErrorHandler = func(e error) {
+	log.Println(e)
 }
+w.AddServer("tcp4", "127.0.0.1:4730")
+// Use worker.Unlimited (0) if you want no timeout
+w.AddFunc("ToUpper", ToUpper, worker.Unlimited)
+// This will give a timeout of 5 seconds
+w.AddFunc("ToUpperTimeOut5", ToUpper, 5)
 
-func main(){
-
-	log.Println("Worker starting...")
-	defer log.Println("Worker shutdown")
-
-	w := worker.New(worker.Unlimited)
-	defer w.Close()
-
-	//error handling
-	w.ErrorHandler = func(e error) {
-		log.Println(e)
-	}
-
-	w.AddServer("tcp4","127.0.0.1:4730")
-
-	// Use worker.Unlimited if you want no timeout
-	w.AddFunc("ToUpper", ToUpper, worker.Unlimited)
-	// This will give a timeout of 5 seconds
-	w.AddFunc("ToUpperTimeOut5", ToUpper, 5)
-
-	if err := w.Ready(); err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	go w.Work()
-
-	//Ctrl-C to exit
-	signal.Bind(os.Interrupt, func() uint { return signal.BreakExit })
-	signal.Wait()
+if err := w.Ready(); err != nil {
+	log.Fatal(err)
+	return
 }
+go w.Work()
 ```
 
 ## Client
 
 ```go
-import (
-	"log"
-	"os"
-	"github.com/appscode/g2/client"
-	"github.com/appscode/g2/pkg/runtime"
-	"github.com/mikespook/golib/signal"
-)
-
-func main(){
-
-	c, err := client.New("tcp4", "127.0.0.1:4730")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer c.Close()
-
-	//error handling
-	c.ErrorHandler = func(e error) {
-		log.Println(e)
-	}
-
-	echo := []byte("Hello world")
-	echoMsg, err := c.Echo(echo)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	log.Println("Echo:", string(echoMsg))
-
-	jobHandler := func(resp *client.Response) {
-		log.Printf("Response: %s", resp.Data)
-	}
-
-	c.Do("ToUpper", echo, runtime.JobNormal, jobHandler)
-	c.Do("ToUpperTimeOut5", echo, runtime.JobNormal, jobHandler)
-
-	//Ctrl-C to exit
-	signal.Bind(os.Interrupt, func() uint { return signal.BreakExit })
-	signal.Wait()
+c, err := client.New("tcp4", "127.0.0.1:4730")
+defer c.Close()
+//error handling
+c.ErrorHandler = func(e error) {
+	log.Println(e)
 }
+echo := []byte("Hello\x00 world")
+echomsg, err := c.Echo(echo)
+log.Println(string(echomsg))
+jobHandler := func(resp *client.Response) {
+	log.Printf("%s", resp.Data)
+}
+handle, err := c.Do("ToUpper", echo, runtime.JobNormal, jobHandler)
 ```
 
 ## Gearman Admin Client
 Package gearadmin provides simple bindings to the gearman admin protocol: http://gearman.org/protocol/. Here's an example program that outputs the status of all worker queues in gearman:
 
 ```go
-package main
-
-import (
-	"fmt"
-	"github.com/appscode/g2/gearadmin"
-	"net"
-)
-
-func main() {
-	c, err := net.Dial("tcp", "localhost:4730")
-	if err != nil {
-		panic(err)
-	}
-	defer c.Close()
-	admin := gearadmin.NewGearmanAdmin(c)
-	status, _ := admin.Status()
-	fmt.Printf("%#v\n", status)
+c, err := net.Dial("tcp", "localhost:4730")
+if err != nil {
+	panic(err)
 }
+defer c.Close()
+admin := gearadmin.NewGearmanAdmin(c)
+status, _ := admin.Status()
+fmt.Printf("%#v\n", status)
 ```
 
 Build Instructions
