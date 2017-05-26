@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/appscode/log"
@@ -39,27 +38,18 @@ func getCronJob(s *Server, ctx *macaron.Context) string {
 }
 
 func registerWebHandler(s *Server) {
-	addr := os.Getenv("GEARMAND_MONITOR_ADDR")
-	if addr == "" {
-		addr = ":3000"
-	} else if addr == "-" {
-		// Don't start web monitor
-		return
-	}
-
 	m := macaron.New()
 	m.Use(macaron.Logger())
 	m.Use(macaron.Recovery())
 	m.Use(macaron.Renderer())
-
 	m.Use(toolbox.Toolboxer(m))
+
 	m.Get("/debug/stats", stats.ExpvarHandler)
 
 	m.Get("/jobs", func(ctx *macaron.Context) string {
 		return getJob(s, ctx)
 	})
 
-	//get job information using job handle
 	m.Get("/jobs/:handle", func(ctx *macaron.Context) string {
 		return getJob(s, ctx)
 	})
@@ -81,9 +71,9 @@ func registerWebHandler(s *Server) {
 		return getCronJob(s, ctx)
 	})
 
-	log.Infof("listening on %s (%s)\n", addr, macaron.Env)
+	log.Infof("listening on %s (%s)\n", s.config.RestAPIAddress, macaron.Env)
 	srv := &http.Server{
-		Addr:         addr,
+		Addr:         s.config.RestAPIAddress,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		Handler:      m,

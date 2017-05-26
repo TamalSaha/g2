@@ -15,13 +15,21 @@ import (
 
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/pkg/storage"
+	"github.com/appscode/g2/pkg/storage/leveldb"
 	"github.com/appscode/log"
 	"github.com/ngaut/stats"
 	lberror "github.com/syndtr/goleveldb/leveldb/errors"
 	"gopkg.in/robfig/cron.v2"
 )
 
+type Config struct {
+	ListenAddr     string
+	Storage        string
+	RestAPIAddress string
+}
+
 type Server struct {
+	config         *Config
 	protoEvtCh     chan *event
 	ctrlEvtCh      chan *event
 	funcWorker     map[string]*jobworkermap //function worker
@@ -42,8 +50,9 @@ var ( //const replys, to avoid building it every time
 	nojobReply  = constructReply(PT_NoJob, nil)
 )
 
-func NewServer(store storage.Db) *Server {
-	return &Server{
+func NewServer(cfg *Config) *Server {
+	srv := &Server{
+		config:     cfg,
 		funcWorker: make(map[string]*jobworkermap),
 		protoEvtCh: make(chan *event, 100),
 		ctrlEvtCh:  make(chan *event, 100),
@@ -51,11 +60,20 @@ func NewServer(store storage.Db) *Server {
 		client:     make(map[int64]*Client),
 		jobs:       make(map[string]*Job),
 		opCounter:  make(map[PT]int64),
-		store:      store,
 		cronSvc:    cron.New(),
 		cronJobs:   make(map[string]*CronJob),
 		mu:         &sync.RWMutex{},
 	}
+
+	// Initiate data storage
+	if len(cfg.Storage) > 0 {
+		s, err := leveldbq.New(cfg.Storage)
+		if err != nil {
+			log.Info(err)
+		}
+		srv.store = s
+	}
+	return srv
 }
 
 func (s *Server) loadAllJobs() {
@@ -106,16 +124,18 @@ func (s *Server) loadAllCronJobs() {
 	}
 }
 
-func (s *Server) Start(addr string) {
-	ln, err := net.Listen("tcp", addr)
+func (s *Server) Start() {
+	ln, err := net.Listen("tcp", s.config.ListenAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	log.Debug("listening on", s.config.ListenAddr)
 	go s.EvtLoop()
-	log.Debug("listening on", addr)
 
-	go registerWebHandler(s)
+	if len(s.config.RestAPIAddress) > 0 {
+		go registerWebHandler(s)
+	}
 	go s.WatcherLoop()
 	go s.WatchJobTimeout()
 	if s.cronSvc != nil {
