@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,14 +19,17 @@ import (
 	"github.com/appscode/g2/pkg/storage/leveldb"
 	"github.com/appscode/log"
 	"github.com/ngaut/stats"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	lberror "github.com/syndtr/goleveldb/leveldb/errors"
 	"gopkg.in/robfig/cron.v2"
 )
 
 type Config struct {
-	ListenAddr     string
-	Storage        string
-	RestAPIAddress string
+	ListenAddr       string
+	Storage          string
+	RestAPIAddress   string
+	MonitoringPort   int
+	PrometheusPrefix string
 }
 
 type Server struct {
@@ -133,9 +137,24 @@ func (s *Server) Start() {
 	log.Debug("listening on", s.config.ListenAddr)
 	go s.EvtLoop()
 
+	// Run REST API Server
 	if len(s.config.RestAPIAddress) > 0 {
 		go registerWebHandler(s)
 	}
+
+	// Run Monitoring
+	if len(s.config.PrometheusPrefix) > 0 {
+		// TODO Register Matrics
+		http.Handle(s.config.PrometheusPrefix, promhttp.Handler())
+	}
+
+	// Run Monitoring
+	if s.config.MonitoringPort > 0 {
+		go func() {
+			log.Infoln(http.ListenAndServe(":"+strconv.Itoa(s.config.MonitoringPort), nil))
+		}()
+	}
+
 	go s.WatcherLoop()
 	go s.WatchJobTimeout()
 	if s.cronSvc != nil {
