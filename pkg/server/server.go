@@ -14,11 +14,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/appscode/g2/pkg/metrics"
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/pkg/storage"
 	"github.com/appscode/g2/pkg/storage/leveldb"
 	"github.com/appscode/log"
 	"github.com/ngaut/stats"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	lberror "github.com/syndtr/goleveldb/leveldb/errors"
 	"gopkg.in/robfig/cron.v2"
@@ -144,6 +146,7 @@ func (s *Server) Start() {
 
 	// Run Monitoring
 	if len(s.config.PrometheusPrefix) > 0 {
+		prometheus.MustRegister(metrics.NewServerCollector())
 		// TODO Register Matrics
 		http.Handle(s.config.PrometheusPrefix, promhttp.Handler())
 	}
@@ -151,6 +154,7 @@ func (s *Server) Start() {
 	// Run Monitoring
 	if s.config.MonitoringPort > 0 {
 		go func() {
+			log.Infoln("Running Monitoring At ", s.config.MonitoringPort)
 			log.Infoln(http.ListenAndServe(":"+strconv.Itoa(s.config.MonitoringPort), nil))
 		}()
 	}
