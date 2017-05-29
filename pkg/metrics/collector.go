@@ -14,11 +14,11 @@ func (s *collector) Describe(ch chan<- *prometheus.Desc) {
 
 func (s *collector) Collect(ch chan<- prometheus.Metric) {
 	for _, c := range s.metrics {
-		ch <- c.collect(c.desc)
+		c.collect(c.desc, ch)
 	}
 }
 
 type element struct {
-	collect func(desc *prometheus.Desc) prometheus.Metric
+	collect func(desc *prometheus.Desc, ch chan<- prometheus.Metric)
 	desc    *prometheus.Desc
 }

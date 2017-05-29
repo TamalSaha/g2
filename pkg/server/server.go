@@ -146,8 +146,7 @@ func (s *Server) Start() {
 
 	// Run Monitoring
 	if len(s.config.PrometheusPrefix) > 0 {
-		prometheus.MustRegister(metrics.NewServerCollector())
-		// TODO Register Matrics
+		prometheus.MustRegister(metrics.NewServerCollector(s))
 		http.Handle(s.config.PrometheusPrefix, promhttp.Handler())
 	}
 
