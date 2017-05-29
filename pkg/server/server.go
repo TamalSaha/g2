@@ -18,7 +18,6 @@ import (
 	. "github.com/appscode/g2/pkg/runtime"
 	"github.com/appscode/g2/pkg/storage"
 	"github.com/appscode/g2/pkg/storage/leveldb"
-	"github.com/appscode/go/runtime"
 	"github.com/appscode/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -140,14 +139,12 @@ func (s *Server) Start() {
 	// Run REST API Server
 	if len(s.config.WebAddress) > 0 {
 		go func() {
-			defer runtime.HandleCrash()
-
 			prometheus.MustRegister(metrics.NewServerCollector(s))
 			http.Handle("/metrics", promhttp.Handler())
 
 			registerAPIHandlers(s)
 
-			log.Infoln("Running Monitoring At ", s.config.WebAddress)
+			log.Infoln("Running web api at", s.config.WebAddress)
 			log.Fatalln(http.ListenAndServe(s.config.WebAddress, nil))
 		}()
 	}
