@@ -6,7 +6,6 @@ import (
 
 	"github.com/appscode/log"
 	"github.com/go-macaron/toolbox"
-	"github.com/ngaut/stats"
 	"gopkg.in/macaron.v1"
 )
 
@@ -43,8 +42,6 @@ func registerWebHandler(s *Server) {
 	m.Use(macaron.Recovery())
 	m.Use(macaron.Renderer())
 	m.Use(toolbox.Toolboxer(m))
-
-	m.Get("/debug/stats", stats.ExpvarHandler)
 
 	m.Get("/jobs", func(ctx *macaron.Context) string {
 		return getJob(s, ctx)

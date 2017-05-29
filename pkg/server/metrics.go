@@ -1,5 +1,18 @@
 package server
 
+func (s *Server) Stats() map[string]int {
+	ret := map[string]int{
+		"proto_evt_ch":   len(s.protoEvtCh),
+		"forward_report": int(s.forwardReport),
+		"queue_count":    len(s.funcWorker),
+		"job_queue":      len(s.jobs),
+	}
+	for k, v := range s.opCounter {
+		ret[k.String()] = int(v)
+	}
+	return ret
+}
+
 func (s *Server) Workers() int {
 	return len(s.worker)
 }

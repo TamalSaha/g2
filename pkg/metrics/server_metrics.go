@@ -9,6 +9,7 @@ const (
 )
 
 type ServerData interface {
+	Stats() map[string]int
 	Clients() int
 	Workers() int
 	Jobs() int
@@ -87,6 +88,23 @@ func NewServerCollector(s ServerData) prometheus.Collector {
 				),
 				collect: func(d *prometheus.Desc, ch chan<- prometheus.Metric) {
 					for k, v := range s.RunningJobsByFunction() {
+						ch <- prometheus.MustNewConstMetric(
+							d,
+							prometheus.GaugeValue,
+							float64(v),
+							k,
+						)
+					}
+				},
+			},
+			{
+				desc: prometheus.NewDesc(
+					prometheus.BuildFQName(serverNamespace, "", "stats"),
+					"Running job count by functions",
+					[]string{"stats"}, nil,
+				),
+				collect: func(d *prometheus.Desc, ch chan<- prometheus.Metric) {
+					for k, v := range s.Stats() {
 						ch <- prometheus.MustNewConstMetric(
 							d,
 							prometheus.GaugeValue,

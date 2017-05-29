@@ -19,7 +19,6 @@ import (
 	"github.com/appscode/g2/pkg/storage"
 	"github.com/appscode/g2/pkg/storage/leveldb"
 	"github.com/appscode/log"
-	"github.com/ngaut/stats"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	lberror "github.com/syndtr/goleveldb/leveldb/errors"
@@ -800,28 +799,13 @@ func (s *Server) wakeupTravel() {
 	}
 }
 
-func (s *Server) pubCounter() {
-	for k, v := range s.opCounter {
-		stats.PubInt64(k.String(), v)
-	}
-}
-
 func (s *Server) EvtLoop() {
-	tick := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case e := <-s.protoEvtCh:
 			s.handleProtoEvt(e)
 		case e := <-s.ctrlEvtCh:
 			s.handleCtrlEvt(e)
-		case <-tick.C:
-			s.pubCounter()
-			stats.PubInt("len(protoEvtCh)", len(s.protoEvtCh))
-			stats.PubInt("worker count", len(s.worker))
-			stats.PubInt("job queue length", len(s.jobs))
-			stats.PubInt("queue count", len(s.funcWorker))
-			stats.PubInt("client count", len(s.client))
-			stats.PubInt64("forwardReport", s.forwardReport)
 		}
 	}
 }
