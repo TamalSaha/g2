@@ -2,78 +2,70 @@ package server
 
 import (
 	"net/http"
-	"time"
 
-	"github.com/appscode/log"
-	"github.com/go-macaron/toolbox"
-	"gopkg.in/macaron.v1"
+	"github.com/appscode/pat"
 )
 
-func getJob(s *Server, ctx *macaron.Context) string {
-	e := &event{tp: ctrlGetJob,
-		handle: ctx.Params("handle"), result: createResCh()}
-	s.ctrlEvtCh <- e
-	res := <-e.result
+func registerAPIHandlers(s *Server) {
+	m := pat.New()
 
-	return res.(string)
-}
+	m.Get("/jobs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 
-func getWorker(s *Server, ctx *macaron.Context) string {
-	e := &event{tp: ctrlGetWorker,
-		args: &Tuple{t0: ctx.Params("cando")}, result: createResCh()}
-	s.ctrlEvtCh <- e
-	res := <-e.result
+		e := &event{tp: ctrlGetJob, result: createResCh()}
+		s.ctrlEvtCh <- e
+		res := <-e.result
+		w.Write([]byte(res.(string)))
+	}))
 
-	return res.(string)
-}
+	m.Get("/jobs/:handle", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 
-func getCronJob(s *Server, ctx *macaron.Context) string {
-	e := &event{tp: ctrlGetCronJob,
-		handle: ctx.Params("handle"), result: createResCh()}
-	s.ctrlEvtCh <- e
-	res := <-e.result
+		params, _ := pat.FromContext(r.Context())
+		e := &event{tp: ctrlGetJob, handle: params.Get(":handle"), result: createResCh()}
+		s.ctrlEvtCh <- e
+		res := <-e.result
+		w.Write([]byte(res.(string)))
+	}))
 
-	return res.(string)
-}
+	m.Get("/workers", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 
-func registerWebHandler(s *Server) {
-	m := macaron.New()
-	m.Use(macaron.Logger())
-	m.Use(macaron.Recovery())
-	m.Use(macaron.Renderer())
-	m.Use(toolbox.Toolboxer(m))
+		e := &event{tp: ctrlGetWorker, args: &Tuple{}, result: createResCh()}
+		s.ctrlEvtCh <- e
+		res := <-e.result
+		w.Write([]byte(res.(string)))
+	}))
 
-	m.Get("/jobs", func(ctx *macaron.Context) string {
-		return getJob(s, ctx)
-	})
+	m.Get("/workers/:cando", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 
-	m.Get("/jobs/:handle", func(ctx *macaron.Context) string {
-		return getJob(s, ctx)
-	})
+		params, _ := pat.FromContext(r.Context())
+		e := &event{tp: ctrlGetWorker, args: &Tuple{t0: params.Get(":cando")}, result: createResCh()}
+		s.ctrlEvtCh <- e
+		res := <-e.result
+		w.Write([]byte(res.(string)))
+	}))
 
-	m.Get("/workers", func(ctx *macaron.Context) string {
-		return getWorker(s, ctx)
-	})
+	m.Get("/cronjobs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 
-	m.Get("/workers/:cando", func(ctx *macaron.Context) string {
-		return getWorker(s, ctx)
-	})
-
-	m.Get("/cronjobs", func(ctx *macaron.Context) string {
-		return getCronJob(s, ctx)
-	})
+		e := &event{tp: ctrlGetCronJob, result: createResCh()}
+		s.ctrlEvtCh <- e
+		res := <-e.result
+		w.Write([]byte(res.(string)))
+	}))
 
 	//get job information using job handle
-	m.Get("/cronjobs/:handle", func(ctx *macaron.Context) string {
-		return getCronJob(s, ctx)
-	})
+	m.Get("/cronjobs/:handle", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 
-	log.Infof("listening on %s (%s)\n", s.config.RestAPIAddress, macaron.Env)
-	srv := &http.Server{
-		Addr:         s.config.RestAPIAddress,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		Handler:      m,
-	}
-	log.Fatalln(srv.ListenAndServe())
+		params, _ := pat.FromContext(r.Context())
+		e := &event{tp: ctrlGetCronJob, handle: params.Get(":handle"), result: createResCh()}
+		s.ctrlEvtCh <- e
+		res := <-e.result
+		w.Write([]byte(res.(string)))
+	}))
+
+	http.Handle("/", m)
 }

@@ -1,10 +1,10 @@
-hash: eceb63bf8ff613c15d03db128b7968c20c67ad8065dbdc537f6c19b3ab650b40
-updated: 2017-05-26T16:53:09.123204778+06:00
+hash: 59917b32d44cf36e104fb04fab4f15c98c51ad4faf191efa9390631d400844a9
+updated: 2017-05-29T03:15:52.211186116-07:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
 - name: github.com/appscode/go
-  version: 7ba1c0a441c6c319a501e54db6e93deaff5fe0dd
+  version: 04abd631dc552c01c9448db0763611932590cbc4
   subpackages:
   - flags
   - runtime
@@ -12,18 +12,16 @@ imports:
   version: 68e0e42e42c01371f3950571fc87c2298a51dd8f
   subpackages:
   - golog
+- name: github.com/appscode/pat
+  version: 48ff78925b7955367d8a048fc2b5cec8efadf8d3
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
   subpackages:
   - quantile
-- name: github.com/go-macaron/inject
-  version: d8a0b8677191f4380287cfebd08e462217bac7ad
-- name: github.com/go-macaron/toolbox
-  version: 6766b8f16d1b135b250f09ba4dc4e24ab65b1107
 - name: github.com/golang/glog
   version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/golang/protobuf
-  version: 8ee79997227bf9b34611aee7946ae64735e6fd93
+  version: 8616e8ee5e20a1704615e6c8d7afcdac06087a67
   subpackages:
   - proto
 - name: github.com/golang/snappy
@@ -40,8 +38,6 @@ imports:
   - autoinc
   - idgen
   - signal
-- name: github.com/ngaut/stats
-  version: 8564f986a400931e52c2261e4b784d812c854537
 - name: github.com/prometheus/client_golang
   version: c5b7fccd204277076155f10851dad72b76a49317
   subpackages:
@@ -59,9 +55,9 @@ imports:
 - name: github.com/prometheus/procfs
   version: 454a56f35412459b5e684fd5ec0f9211b94f002a
 - name: github.com/spf13/cobra
-  version: f62e98d28ab7ad31d707ba837a966378465c7b57
+  version: e606913c4ee45fec232e67e70105fb6c866b95d9
 - name: github.com/spf13/pflag
-  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+  version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
 - name: github.com/syndtr/goleveldb
   version: 8c81ea47d4c41a385645e133e15510fc6a2a74b4
   subpackages:
@@ -77,12 +73,6 @@ imports:
   - leveldb/storage
   - leveldb/table
   - leveldb/util
-- name: github.com/Unknwon/com
-  version: 28b053d5a2923b87ce8c5a08f3af779894a72758
-- name: gopkg.in/ini.v1
-  version: 6e4869b434bd001f6983749881c7ead3545887d8
-- name: gopkg.in/macaron.v1
-  version: ddb19a9f3e8cedd44696b9dd5854dc8a43f3dd6c
 - name: gopkg.in/mgo.v2
   version: 3f83fa5005286a7fe593b055f0d7771a7dce4655
   subpackages:
@@ -92,7 +82,7 @@ imports:
   version: be2e0b0deed5a68ffee390b4583a13aff8321535
 testImports:
 - name: github.com/davecgh/go-spew
-  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
   - spew
 - name: github.com/pmezard/go-difflib
@@ -100,6 +90,6 @@ testImports:
   subpackages:
   - difflib
 - name: github.com/stretchr/testify
-  version: e3a8ff8ce36581f87a15341206f205b1da467059
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
   - assert

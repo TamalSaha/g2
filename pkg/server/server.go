@@ -26,11 +26,9 @@ import (
 )
 
 type Config struct {
-	ListenAddr       string
-	Storage          string
-	RestAPIAddress   string
-	MonitoringPort   int
-	PrometheusPrefix string
+	ListenAddr string
+	Storage    string
+	WebAddress string
 }
 
 type Server struct {
@@ -139,21 +137,15 @@ func (s *Server) Start() {
 	go s.EvtLoop()
 
 	// Run REST API Server
-	if len(s.config.RestAPIAddress) > 0 {
-		go registerWebHandler(s)
-	}
-
-	// Run Monitoring
-	if len(s.config.PrometheusPrefix) > 0 {
-		prometheus.MustRegister(metrics.NewServerCollector(s))
-		http.Handle(s.config.PrometheusPrefix, promhttp.Handler())
-	}
-
-	// Run Monitoring
-	if s.config.MonitoringPort > 0 {
+	if len(s.config.WebAddress) > 0 {
 		go func() {
-			log.Infoln("Running Monitoring At ", s.config.MonitoringPort)
-			log.Infoln(http.ListenAndServe(":"+strconv.Itoa(s.config.MonitoringPort), nil))
+			prometheus.MustRegister(metrics.NewServerCollector(s))
+			http.Handle("/metrics", promhttp.Handler())
+
+			registerAPIHandlers(s)
+
+			log.Infoln("Running Monitoring At ", s.config.WebAddress)
+			log.Fatalln(http.ListenAndServe(s.config.WebAddress, nil))
 		}()
 	}
 

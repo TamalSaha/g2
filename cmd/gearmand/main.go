@@ -17,9 +17,7 @@ func main() {
 
 	pflag.StringVar(&cfg.ListenAddr, "addr", ":4730", "listening on, such as 0.0.0.0:4730")
 	pflag.StringVar(&cfg.Storage, "storage-dir", os.TempDir()+"/gearmand", "Directory where LevelDB file is stored.")
-	pflag.StringVar(&cfg.RestAPIAddress, "api-addr", ":3000", "Server RestAPI Address")
-	pflag.IntVar(&cfg.MonitoringPort, "pprof-addr", 6060, "Server pprof address")
-	pflag.StringVar(&cfg.PrometheusPrefix, "prometheus", "/metrics", "Expose promethues matrix in prefix")
+	pflag.StringVar(&cfg.WebAddress, "web.addr", ":3000", "Server HTTP api Address")
 
 	defer runtime.HandleCrash()
 
