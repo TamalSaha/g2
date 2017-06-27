@@ -14,16 +14,15 @@ rules:
   - extensions
   resources:
   - deployments
-  verbs: ["*"]
+  verbs: ["get", "create", "update"]
 - apiGroups: [""]
   resources:
   - services
-  - endpoints
-  verbs: ["*"]
+  verbs: ["create", "update"]
 - apiGroups: [""]
   resources:
   - pods
-  verbs: ["list", "create", "delete"]
+  verbs: ["list", "create", "update", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/{{ required "A valid .Values.rbac.apiVersion entry required!" .Values.rbac.apiVersion }}
 kind: ClusterRoleBinding
