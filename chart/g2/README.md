@@ -1,5 +1,5 @@
 # G2
-[G2 by AppsCode](https://github.com/appscode/g2) is a modern implementation of Gearman protocol in GO.
+[G2 by AppsCode](https://github.com/appscode/g2) is a modern implementation of Gearman server in GO.
 ## TL;DR;
 
 ```bash
