@@ -25,3 +25,4 @@ dist/
 --crash.log
 .vscode/
 coverage.txt
+profile.out
